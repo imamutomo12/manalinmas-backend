@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:17.5
+    container_name: manalinmas_db
+    environment:
+      POSTGRES_USER: linmas_user
+      POSTGRES_PASSWORD: linmas_password
+      POSTGRES_DB: manalinmas_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    restart: unless-stopped
+
+volumes:
+  pgdata:

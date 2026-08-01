@@ -1,0 +1,410 @@
+datasource db {
+  provider = "postgresql"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// =============================================================================
+// ENUMS (Standardized from System Specifications)
+// =============================================================================
+
+enum Role {
+  KOORDINATOR
+  LINMAS
+  WARGA
+}
+
+enum ShiftType {
+  MORNING
+  NIGHT
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  LATE
+}
+
+enum LogType {
+  CLOCK_IN
+  CLOCK_OUT
+}
+
+enum GeofenceStatus {
+  VERIFIED_INSIDE
+  VERIFIED_OUTSIDE
+  GPS_NOT_AVAILABLE
+}
+
+enum IncidentStatus {
+  MENUNGGU
+  DITANGANI
+  MENUNGGUPENILAIANWARGA
+  SELESAI
+  DIALIHKAN
+}
+
+enum ResponseType {
+  CLAIMED
+  INTERVENED
+}
+
+enum PatrolType {
+  SUSPICIOUS_OBJECT
+  FACILITY_DAMAGE
+  POTENTIAL_HAZARD
+}
+
+enum SanctionLevel {
+  SP1
+  SP2
+  SP3
+}
+
+// =============================================================================
+// MODELS
+// =============================================================================
+
+model User {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  role          Role
+  email         String   @unique @db.VarChar(255)
+  phone_number  String   @unique @db.VarChar(50)
+  password_hash String   @db.VarChar(255)
+  fcm_token     String?  @db.VarChar(255)
+  created_at    DateTime @default(now()) @map("created_at")
+  is_active     Boolean  @default(true)
+
+  deleted_at DateTime?
+
+  // 1:1 Profile Extensions
+  wargaProfile       WargaProfile?
+  linmasProfile      LinmasProfile?
+  koordinatorProfile KoordinatorProfile?
+
+  // General Relations
+  uploadedFiles     File[]             @relation("UserUploads")
+  incidentResponses IncidentResponse[] @relation("UserResponses")
+
+  @@map("users")
+}
+
+model WargaProfile {
+  userId   String @id @map("user_id") @db.Uuid
+  fullName String @map("full_name") @db.VarChar(255)
+  address  String @db.Text
+
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  incidents Incident[] @relation("WargaIncidents")
+
+  @@map("warga_profiles")
+}
+
+model LinmasProfile {
+  userId         String   @id @map("user_id") @db.Uuid
+  fullName       String   @map("full_name") @db.VarChar(255)
+  address        String   @db.Text
+  employmentDate DateTime @map("employment_date") @db.Date
+
+  reguId String? @map("regu_id") @db.Uuid
+  regu   Regu?   @relation(fields: [reguId], references: [id])
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Relations mapped from ERD
+  assignments             ShiftAssignment[]        @relation("LinmasAssignments")
+  substituteFor           ShiftAssignment[]        @relation("OriginalLinmasAssignments")
+  attendanceSessions      AttendanceSession[]
+  patrolReports           PatrolReport[]
+  violations              Violation[]              @relation("LinmasViolations")
+  salaryAdjustmentPeriods SalaryAdjustmentPeriod[]
+  incidents               Incident[]
+
+  @@map("linmas_profiles")
+}
+
+model KoordinatorProfile {
+  userId          String   @id @map("user_id") @db.Uuid
+  fullName        String   @map("full_name") @db.VarChar(255)
+  appointmentDate DateTime @map("appointment_date") @db.Date
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Relations
+  issuedViolations          Violation[]              @relation("KoordinatorViolations")
+  approvedSalaryAdjustments SalaryAdjustmentPeriod[] @relation("SalaryApprovals")
+
+  @@map("koordinator_profiles")
+}
+
+model File {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  original_name String   @map("original_name") @db.VarChar(255)
+  storageKey    String   @map("storage_key") @db.VarChar(255)
+  mime_type     String   @map("mime_type") @db.VarChar(100)
+  fileKey       String   @map("file_key") @db.VarChar(255)
+  uploadedBy    String   @map("uploaded_by") @db.Uuid
+  created_at    DateTime @default(now()) @map("created_at")
+
+  uploader User @relation("UserUploads", fields: [uploadedBy], references: [id])
+
+  // Explicit 1:0..1 mapping to maintain unique asset enforcement per business log
+  attendanceLog AttendanceLog?
+  incident      Incident?
+  patrolReport  PatrolReport?
+
+  @@map("files")
+}
+
+model Shift {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  shiftDate DateTime  @map("shift_date") @db.Date
+  shiftType ShiftType @map("shift_type")
+  startTime DateTime  @map("start_time") @db.Time()
+  endTime   DateTime  @map("end_time") @db.Time()
+
+  // ---> ADD THESE TWO LINES <---
+  reguId String? @map("regu_id") @db.Uuid
+  regu   Regu?   @relation(fields: [reguId], references: [id])
+
+  assignments ShiftAssignment[]
+
+  @@map("shifts")
+}
+
+model ShiftAssignment {
+  id               String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  shiftId          String  @map("shift_id") @db.Uuid
+  linmasId         String  @map("linmas_id") @db.Uuid
+  isSubstitute     Boolean @default(false) @map("is_substitute")
+  originalLinmasId String? @map("original_linmas_id") @db.Uuid
+
+  shift          Shift          @relation(fields: [shiftId], references: [id], onDelete: Cascade)
+  linmas         LinmasProfile  @relation("LinmasAssignments", fields: [linmasId], references: [userId])
+  originalLinmas LinmasProfile? @relation("OriginalLinmasAssignments", fields: [originalLinmasId], references: [userId])
+
+  attendanceSessions AttendanceSession[]
+
+  @@map("shift_assignments")
+}
+
+model AttendanceSession {
+  id                String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  shiftAssignmentId String           @map("shift_assignment_id") @db.Uuid
+  status            AttendanceStatus
+  completedAt       DateTime?        @map("completed_at")
+  ended_at DateTime? @map("ended_at")
+  shiftAssignment     ShiftAssignment @relation(fields: [shiftAssignmentId], references: [id], onDelete: Cascade)
+  logs                AttendanceLog[]
+  visits              PatrolVisit[]
+  linmasProfile       LinmasProfile?  @relation(fields: [linmasProfileUserId], references: [userId])
+  linmasProfileUserId String?         @db.Uuid
+
+  @@map("attendance_sessions")
+}
+
+model AttendanceLog {
+  id             String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sessionId      String         @map("session_id") @db.Uuid
+  logType        LogType        @map("log_type")
+  latitude       Decimal        @db.Decimal(10, 7)
+  longitude      Decimal        @db.Decimal(10, 7)
+  geofenceStatus GeofenceStatus @map("geofence_status")
+  photoFileId    String         @unique @map("photo_file_id") @db.Uuid
+  timestamp      DateTime       @default(now())
+  distanceMeters Decimal?       @map("distance_meters") @db.Decimal(6, 2)
+
+  geofenceRadius Int @map("geofence_radius")
+
+  session   AttendanceSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  photoFile File              @relation(fields: [photoFileId], references: [id])
+
+  @@map("attendance_logs")
+}
+
+model PatrolCheckpoint {
+  id          String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name        String  @db.VarChar(100)
+  description String? @db.Text
+
+  latitude     Decimal @db.Decimal(10, 7)
+  longitude    Decimal @db.Decimal(10, 7)
+  radiusMeters Int     @map("radius_meters")
+
+  block String? @db.VarChar(20)
+  rt    String? @db.VarChar(20)
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  visits PatrolVisit[]
+
+  @@map("patrol_checkpoints")
+}
+
+model PatrolVisit {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+
+  attendanceSessionId String @map("attendance_session_id") @db.Uuid
+  checkpointId        String @map("checkpoint_id") @db.Uuid
+
+  enteredAt DateTime @default(now()) @map("entered_at")
+
+  latitude  Decimal @db.Decimal(10, 7)
+  longitude Decimal @db.Decimal(10, 7)
+
+  visitCount Int @default(1) @map("visit_count")
+
+  attendanceSession AttendanceSession @relation(fields: [attendanceSessionId], references: [id], onDelete: Cascade)
+  checkpoint        PatrolCheckpoint  @relation(fields: [checkpointId], references: [id])
+
+  @@unique([attendanceSessionId, checkpointId])
+  @@map("patrol_visits")
+}
+
+model Incident {
+  id                String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  reportedByWargaId String         @map("reported_by_warga_id") @db.Uuid
+  title             String         @db.VarChar(255)
+  description       String         @db.Text
+  status            IncidentStatus @default(MENUNGGU)
+  latitude          Decimal        @db.Decimal(10, 7)
+  longitude         Decimal        @db.Decimal(10, 7)
+  photoFileId       String         @unique @map("photo_file_id") @db.Uuid
+  reportedAt        DateTime       @default(now()) @map("reported_at")
+  handledAt         DateTime?      @map("handled_at")
+  resolvedAt        DateTime?      @map("resolved_at")
+  resolvedById      String?        @map("resolved_by_id") @db.Uuid
+  resolvedBy        LinmasProfile? @relation(fields: [linmasProfileUserId], references: [userId])
+
+  rating IncidentRating?
+
+  warga               WargaProfile       @relation("WargaIncidents", fields: [reportedByWargaId], references: [userId])
+  photoFile           File               @relation(fields: [photoFileId], references: [id])
+  responses           IncidentResponse[]
+  linmasProfileUserId String?            @db.Uuid
+
+  @@map("incidents")
+}
+
+model IncidentRating {
+  id         String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  incidentId String @unique @map("incident_id") @db.Uuid
+
+  rating Int @db.SmallInt
+
+  review String? @db.Text
+
+  ratedAt DateTime @default(now()) @map("rated_at")
+
+  incident Incident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+
+  @@map("incident_ratings")
+}
+
+model IncidentResponse {
+  id           String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  incidentId   String       @map("incident_id") @db.Uuid
+  responderId  String       @map("responder_id") @db.Uuid
+  responseType ResponseType @map("response_type")
+  notes        String?      @db.Text
+  createdAt    DateTime     @default(now()) @map("created_at")
+
+  incident  Incident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  responder User     @relation("UserResponses", fields: [responderId], references: [id])
+
+  @@map("incident_responses")
+}
+
+model PatrolReport {
+  id          String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  linmasId    String     @map("linmas_id") @db.Uuid
+  patrolType  PatrolType @map("patrol_type")
+  description String     @db.Text
+  latitude    Decimal    @db.Decimal(10, 7)
+  longitude   Decimal    @db.Decimal(10, 7)
+  photoFileId String     @unique @map("photo_file_id") @db.Uuid
+  reportedAt  DateTime   @default(now()) @map("reported_at")
+
+  linmas    LinmasProfile @relation(fields: [linmasId], references: [userId])
+  photoFile File          @relation(fields: [photoFileId], references: [id])
+
+  @@map("patrol_reports")
+}
+
+model Violation {
+  id             String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  linmasId       String        @map("linmas_id") @db.Uuid
+  issuedByKoorId String        @map("issued_by_koor_id") @db.Uuid
+  violationType  String        @map("violation_type") @db.VarChar(255)
+  sanctionLevel  SanctionLevel @map("sanction_level")
+  incidentDate   DateTime      @map("incident_date") @db.Date
+
+  linmas      LinmasProfile      @relation("LinmasViolations", fields: [linmasId], references: [userId])
+  koordinator KoordinatorProfile @relation("KoordinatorViolations", fields: [issuedByKoorId], references: [userId])
+
+  @@map("violations")
+}
+
+model Regu {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name        String   @unique @db.VarChar(100)
+  description String?  @db.Text
+  created_at  DateTime @default(now()) @map("created_at")
+
+  shifts Shift[] // <-- ADD THIS LINE
+
+  linmasMembers LinmasProfile[]
+
+  @@map("regu")
+}
+
+enum SalaryAdjustmentKind {
+  BONUS
+  DEDUCTION
+}
+
+model SalaryAdjustmentPeriod {
+  id               String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  linmasId         String  @map("linmas_id") @db.Uuid
+  approvedByKoorId String? @map("approved_by_koor_id") @db.Uuid
+
+  month Int
+  year  Int
+
+  totalBonuses    Int @default(0) @map("total_bonuses")
+  totalDeductions Int @default(0) @map("total_deductions")
+  netAdjustment   Int @default(0) @map("net_adjustment")
+
+  isApproved Boolean   @default(false) @map("is_approved")
+  approvedAt DateTime? @map("approved_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  linmas LinmasProfile @relation(fields: [linmasId], references: [userId], onDelete: Cascade)
+
+  approver KoordinatorProfile? @relation("SalaryApprovals", fields: [approvedByKoorId], references: [userId], onDelete: SetNull)
+
+  items SalaryAdjustmentItem[]
+
+  @@unique([linmasId, month, year], name: "linmasId_month_year")
+  @@map("salary_adjustment_periods")
+}
+
+model SalaryAdjustmentItem {
+  id             String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  periodId       String               @map("period_id") @db.Uuid
+  adjustmentKind SalaryAdjustmentKind @map("adjustment_kind")
+  sourceType     String?              @map("source_type") @db.VarChar(50)
+  sourceId       String?              @map("source_id") @db.Uuid
+  reason         String               @db.VarChar(255)
+  amount         Int
+  occurredAt     DateTime             @map("occurred_at")
+  createdAt      DateTime             @default(now()) @map("created_at")
+
+  period SalaryAdjustmentPeriod @relation(fields: [periodId], references: [id], onDelete: Cascade)
+
+  @@map("salary_adjustment_items")
+}

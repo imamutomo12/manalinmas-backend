@@ -1,0 +1,2402 @@
+{
+  "openapi": "3.0.0",
+  "paths": {
+    "/": {
+      "get": {
+        "operationId": "AppController_getHello",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "App"
+        ]
+      }
+    },
+    "/auth/register/warga": {
+      "post": {
+        "operationId": "AuthController_registerWarga",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterWargaDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Register as Warga",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/auth/register/linmas": {
+      "post": {
+        "operationId": "AuthController_registerLinmas",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterLinmasDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Register a Linmas Officer (Koordinator Only)",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "operationId": "AuthController_login",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Login for all roles",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/auth/refresh-token": {
+      "post": {
+        "operationId": "AuthController_refreshToken",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefreshTokenDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Refresh Access Token",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/auth/logout": {
+      "post": {
+        "operationId": "AuthController_logout",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LogoutDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Logout and clear FCM Token",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/home/koordinator": {
+      "get": {
+        "operationId": "HomeController_getKoordinatorHome",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get Koordinator Home Summary",
+        "tags": [
+          "Home"
+        ]
+      }
+    },
+    "/home/linmas": {
+      "get": {
+        "operationId": "HomeController_getLinmasHome",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get Linmas Home Summary",
+        "tags": [
+          "Home"
+        ]
+      }
+    },
+    "/home/warga": {
+      "get": {
+        "operationId": "HomeController_getWargaHome",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get Warga Home Summary",
+        "tags": [
+          "Home"
+        ]
+      }
+    },
+    "/shifts": {
+      "post": {
+        "operationId": "ShiftsController_createShift",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateShiftDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Create Shift Schedule (Koordinator Only)",
+        "tags": [
+          "Shifts"
+        ]
+      },
+      "get": {
+        "operationId": "ShiftsController_getShifts",
+        "parameters": [
+          {
+            "name": "month",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "year",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get All Shift List (Koordinator Only)",
+        "tags": [
+          "Shifts"
+        ]
+      }
+    },
+    "/shifts/bulk": {
+      "post": {
+        "operationId": "ShiftsController_createBulkShifts",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkCreateShiftDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Bulk Create Shift Schedule (Koordinator Only)",
+        "tags": [
+          "Shifts"
+        ]
+      }
+    },
+    "/shifts/my": {
+      "get": {
+        "operationId": "ShiftsController_getMyShifts",
+        "parameters": [
+          {
+            "name": "month",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "year",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get My Personal Shift Schedule (Linmas Only)",
+        "tags": [
+          "Shifts"
+        ]
+      }
+    },
+    "/shifts/{shift_id}": {
+      "put": {
+        "operationId": "ShiftsController_updateShift",
+        "parameters": [
+          {
+            "name": "shift_id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateShiftDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Update Shift Schedule (Koordinator Only)",
+        "tags": [
+          "Shifts"
+        ]
+      },
+      "delete": {
+        "operationId": "ShiftsController_deleteShift",
+        "parameters": [
+          {
+            "name": "shift_id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Delete Shift Schedule (Koordinator Only)",
+        "tags": [
+          "Shifts"
+        ]
+      }
+    },
+    "/shifts/{shift_id}/substitute": {
+      "post": {
+        "operationId": "ShiftsController_assignSubstitute",
+        "parameters": [
+          {
+            "name": "shift_id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubstituteShiftDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Assign Substitute Officer (Koordinator Only)",
+        "tags": [
+          "Shifts"
+        ]
+      }
+    },
+    "/users": {
+      "get": {
+        "operationId": "UsersController_getUsers",
+        "parameters": [
+          {
+            "name": "role",
+            "required": false,
+            "in": "query",
+            "description": "Filter users by role (e.g., LINMAS)",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "KOORDINATOR",
+                "LINMAS",
+                "WARGA"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get list of users (filterable by role)",
+        "tags": [
+          "Users"
+        ]
+      }
+    },
+    "/users/{id}": {
+      "get": {
+        "operationId": "UsersController_getUserById",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get user detail by ID",
+        "tags": [
+          "Users"
+        ]
+      },
+      "patch": {
+        "operationId": "UsersController_updateUser",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateUserDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Update user profile (nama, HP, email, regu, alamat)",
+        "tags": [
+          "Users"
+        ]
+      },
+      "delete": {
+        "operationId": "UsersController_deleteUser",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Nonaktifkan user (soft delete)",
+        "tags": [
+          "Users"
+        ]
+      }
+    },
+    "/users/linmas": {
+      "post": {
+        "operationId": "UsersController_createLinmas",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateLinmasDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Create new Linmas member (moved from auth/register)",
+        "tags": [
+          "Users"
+        ]
+      }
+    },
+    "/attendance/status": {
+      "get": {
+        "operationId": "AttendanceController_getStatus",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get Today Attendance Status (Android Home)",
+        "tags": [
+          "Attendance"
+        ]
+      }
+    },
+    "/attendance/geofence": {
+      "get": {
+        "operationId": "AttendanceController_getGeofence",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get Master Geofence Configuration",
+        "tags": [
+          "Attendance"
+        ]
+      }
+    },
+    "/attendance/clock-in": {
+      "post": {
+        "operationId": "AttendanceController_clockIn",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/ClockInDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Clock-In Attendance with Photo Upload",
+        "tags": [
+          "Attendance"
+        ]
+      }
+    },
+    "/attendance/clock-out": {
+      "post": {
+        "operationId": "AttendanceController_clockOut",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/ClockOutDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Clock-Out Attendance with Photo Upload",
+        "tags": [
+          "Attendance"
+        ]
+      }
+    },
+    "/attendance/recap": {
+      "get": {
+        "operationId": "AttendanceController_getRecap",
+        "parameters": [
+          {
+            "name": "month",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "year",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get Monthly Attendance Recap",
+        "tags": [
+          "Attendance"
+        ]
+      }
+    },
+    "/geofence/config": {
+      "get": {
+        "operationId": "GeofenceController_getConfig",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get Geofence Configuration for Android Client",
+        "tags": [
+          "Geofence"
+        ]
+      }
+    },
+    "/storage/upload": {
+      "post": {
+        "operationId": "StorageController_uploadImage",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary"
+                  },
+                  "folder": {
+                    "type": "string",
+                    "enum": [
+                      "attendance",
+                      "incidents",
+                      "patrols"
+                    ]
+                  },
+                  "reference_id": {
+                    "type": "string",
+                    "nullable": true
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Upload Image to Backblaze B2 CDN",
+        "tags": [
+          "Storage"
+        ]
+      }
+    },
+    "/storage/files/{file_id}": {
+      "get": {
+        "operationId": "StorageController_getFileMetadata",
+        "parameters": [
+          {
+            "name": "file_id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get File Metadata",
+        "tags": [
+          "Storage"
+        ]
+      }
+    },
+    "/storage/files/{file_id}/view": {
+      "get": {
+        "operationId": "StorageController_getPrivateFileView",
+        "parameters": [
+          {
+            "name": "file_id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get Temporary Secure URL for Private Image",
+        "tags": [
+          "Storage"
+        ]
+      }
+    },
+    "/storage/files/batch-view": {
+      "post": {
+        "operationId": "StorageController_getMultiplePrivateFileViews",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GetMultipleFilesDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get Temporary Secure URLs for Multiple Private Images",
+        "tags": [
+          "Storage"
+        ]
+      }
+    },
+    "/incidents": {
+      "post": {
+        "operationId": "IncidentsController_createIncident",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateIncidentDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Create Incident Report (Warga Only)",
+        "tags": [
+          "Incidents"
+        ]
+      },
+      "get": {
+        "operationId": "IncidentsController_getIncidents",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get All Incident List",
+        "tags": [
+          "Incidents"
+        ]
+      }
+    },
+    "/incidents/active": {
+      "get": {
+        "operationId": "IncidentsController_getActiveIncidents",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get Active Incidents Only",
+        "tags": [
+          "Incidents"
+        ]
+      }
+    },
+    "/incidents/my": {
+      "get": {
+        "operationId": "IncidentsController_getMyIncidents",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Track My Incident Reports (Warga Only)",
+        "tags": [
+          "Incidents"
+        ]
+      }
+    },
+    "/incidents/{incident_id}": {
+      "get": {
+        "operationId": "IncidentsController_getIncidentDetail",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get Incident Detail (Includes Rating & Private URL)",
+        "tags": [
+          "Incidents"
+        ]
+      }
+    },
+    "/incidents/{incident_id}/claim": {
+      "post": {
+        "operationId": "IncidentsController_claimIncident",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Claim Incident (\"Saya Tangani\")",
+        "tags": [
+          "Incidents"
+        ]
+      }
+    },
+    "/incidents/{incident_id}/status": {
+      "patch": {
+        "operationId": "IncidentsController_updateIncidentStatus",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateIncidentStatusDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Update Incident Status (To Selesai/Dialihkan)",
+        "tags": [
+          "Incidents"
+        ]
+      }
+    },
+    "/incidents/{incident_id}/intervene": {
+      "post": {
+        "operationId": "IncidentsController_interveneIncident",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InterveneIncidentDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Intervene / Reassign Incident (Koordinator)",
+        "tags": [
+          "Incidents"
+        ]
+      }
+    },
+    "/incidents/{incident_id}/rating": {
+      "post": {
+        "operationId": "IncidentsController_createIncidentRating",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateIncidentRatingDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Give Rating & Review to Finished Incident",
+        "tags": [
+          "Incidents"
+        ]
+      }
+    },
+    "/my/incidents": {
+      "get": {
+        "operationId": "MyIncidentsController_getMyIncidents",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Track My Incident Reports (Warga Only)",
+        "tags": [
+          "My Incidents"
+        ]
+      }
+    },
+    "/violations": {
+      "post": {
+        "operationId": "ViolationsController_createViolation",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateViolationDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Issue a Violation / SP (Koordinator Only)",
+        "tags": [
+          "Violations"
+        ]
+      },
+      "get": {
+        "operationId": "ViolationsController_getViolations",
+        "parameters": [
+          {
+            "name": "linmas_id",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get Violation History",
+        "tags": [
+          "Violations"
+        ]
+      }
+    },
+    "/salaries/recap": {
+      "get": {
+        "operationId": "SalariesController_getAllAdjustments",
+        "parameters": [
+          {
+            "name": "month",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "year",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get Salary Adjustments Recap for All Linmas (Koordinator Only)",
+        "tags": [
+          "Salaries & Adjustments"
+        ]
+      }
+    },
+    "/salaries/my-recap": {
+      "get": {
+        "operationId": "SalariesController_getMyAdjustments",
+        "parameters": [
+          {
+            "name": "month",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "year",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get My Salary Adjustments (Linmas Only)",
+        "tags": [
+          "Salaries & Adjustments"
+        ]
+      }
+    },
+    "/salaries/generate": {
+      "post": {
+        "operationId": "SalariesController_generate",
+        "parameters": [
+          {
+            "name": "month",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "year",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Generate and persist salary adjustments",
+        "tags": [
+          "Salaries & Adjustments"
+        ]
+      }
+    },
+    "/salaries/saved-recap": {
+      "get": {
+        "operationId": "SalariesController_getSavedRecap",
+        "parameters": [
+          {
+            "name": "month",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "year",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get persisted salary adjustments",
+        "tags": [
+          "Salaries & Adjustments"
+        ]
+      }
+    },
+    "/salaries/{periodId}/approval": {
+      "patch": {
+        "operationId": "SalariesController_approveSalary",
+        "parameters": [
+          {
+            "name": "periodId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApproveSalaryAdjustmentDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Approve or revoke salary adjustment",
+        "tags": [
+          "Salaries & Adjustments"
+        ]
+      }
+    },
+    "/patrols/checkpoints": {
+      "get": {
+        "operationId": "PatrolsController_getCheckpoints",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get all active patrol checkpoints",
+        "tags": [
+          "Patrols"
+        ]
+      }
+    },
+    "/patrols/visit": {
+      "post": {
+        "operationId": "PatrolsController_visitCheckpoint",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VisitCheckpointDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Visit a checkpoint (Geofence Verified)",
+        "tags": [
+          "Patrols"
+        ]
+      }
+    },
+    "/patrols/history": {
+      "get": {
+        "operationId": "PatrolsController_getVisitHistory",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get visited checkpoints for current active shift",
+        "tags": [
+          "Patrols"
+        ]
+      }
+    },
+    "/patrols/summary": {
+      "get": {
+        "operationId": "PatrolsController_getPatrolSummary",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get patrol progress summary for current shift",
+        "tags": [
+          "Patrols"
+        ]
+      }
+    },
+    "/patrols/report": {
+      "post": {
+        "operationId": "PatrolsController_createPatrolReport",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePatrolReportDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Submit a Patrol Report Finding",
+        "tags": [
+          "Patrols"
+        ]
+      },
+      "get": {
+        "operationId": "PatrolsController_getPatrolReports",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get List of Patrol Reports",
+        "tags": [
+          "Patrols"
+        ]
+      }
+    },
+    "/patrols/report/{patrol_id}": {
+      "get": {
+        "operationId": "PatrolsController_getPatrolReportDetail",
+        "parameters": [
+          {
+            "name": "patrol_id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get Patrol Report Detail",
+        "tags": [
+          "Patrols"
+        ]
+      }
+    },
+    "/regu": {
+      "post": {
+        "operationId": "ReguController_createRegu",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateReguDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Create a new Regu (Koordinator Only)",
+        "tags": [
+          "Regu (Squads)"
+        ]
+      },
+      "get": {
+        "operationId": "ReguController_getRegus",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get list of all Regu",
+        "tags": [
+          "Regu (Squads)"
+        ]
+      }
+    },
+    "/regu/{regu_id}": {
+      "get": {
+        "operationId": "ReguController_getReguById",
+        "parameters": [
+          {
+            "name": "regu_id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get Regu details and members",
+        "tags": [
+          "Regu (Squads)"
+        ]
+      },
+      "put": {
+        "operationId": "ReguController_updateRegu",
+        "parameters": [
+          {
+            "name": "regu_id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateReguDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Update Regu (Koordinator Only)",
+        "tags": [
+          "Regu (Squads)"
+        ]
+      },
+      "delete": {
+        "operationId": "ReguController_deleteRegu",
+        "parameters": [
+          {
+            "name": "regu_id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Delete Regu (Koordinator Only)",
+        "tags": [
+          "Regu (Squads)"
+        ]
+      }
+    },
+    "/profile": {
+      "get": {
+        "operationId": "ProfileController_getMyProfile",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get My Profile (Dynamic by Role)",
+        "tags": [
+          "Profile"
+        ]
+      }
+    },
+    "/performance/evaluations": {
+      "get": {
+        "operationId": "PerformanceController_getAllEvaluations",
+        "parameters": [
+          {
+            "name": "month",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "year",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get Performance Evaluations of All Linmas (Koordinator)",
+        "tags": [
+          "Performance Evaluation"
+        ]
+      }
+    },
+    "/performance/my-evaluation": {
+      "get": {
+        "operationId": "PerformanceController_getMyEvaluation",
+        "parameters": [
+          {
+            "name": "month",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "year",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get My Performance Evaluation (Linmas)",
+        "tags": [
+          "Performance Evaluation"
+        ]
+      }
+    }
+  },
+  "info": {
+    "title": "MANALINMAS API",
+    "description": "Manajemen Kinerja Linmas & Pelaporan Darurat API",
+    "version": "1.0",
+    "contact": {}
+  },
+  "tags": [],
+  "servers": [],
+  "components": {
+    "securitySchemes": {
+      "bearer": {
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "type": "http"
+      }
+    },
+    "schemas": {
+      "RegisterWargaDto": {
+        "type": "object",
+        "properties": {
+          "full_name": {
+            "type": "string",
+            "example": "Budi Santoso"
+          },
+          "phone_number": {
+            "type": "string",
+            "example": "08123456789"
+          },
+          "email": {
+            "type": "string",
+            "example": "budi@gmail.com"
+          },
+          "password": {
+            "type": "string",
+            "example": "Password123!"
+          },
+          "address": {
+            "type": "string",
+            "example": "Blok C3 No 12 RW 07"
+          }
+        },
+        "required": [
+          "full_name",
+          "phone_number",
+          "email",
+          "password",
+          "address"
+        ]
+      },
+      "RegisterLinmasDto": {
+        "type": "object",
+        "properties": {
+          "full_name": {
+            "type": "string",
+            "example": "Andi Wijaya"
+          },
+          "phone_number": {
+            "type": "string",
+            "example": "08123456789"
+          },
+          "email": {
+            "type": "string",
+            "example": "andi@linmas.id"
+          },
+          "password": {
+            "type": "string",
+            "example": "Password123!"
+          },
+          "address": {
+            "type": "string",
+            "example": "Blok A2"
+          },
+          "employment_date": {
+            "type": "string",
+            "example": "2026-05-20"
+          },
+          "regu_id": {
+            "type": "string",
+            "example": "uuid-of-regu"
+          }
+        },
+        "required": [
+          "full_name",
+          "phone_number",
+          "email",
+          "password",
+          "address",
+          "employment_date",
+          "regu_id"
+        ]
+      },
+      "LoginDto": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "example": "andi@linmas.id"
+          },
+          "password": {
+            "type": "string",
+            "example": "Password123!"
+          },
+          "fcm_token": {
+            "type": "string",
+            "example": "firebase_device_token"
+          }
+        },
+        "required": [
+          "email",
+          "password"
+        ]
+      },
+      "RefreshTokenDto": {
+        "type": "object",
+        "properties": {
+          "refresh_token": {
+            "type": "string",
+            "example": "jwt_refresh_token"
+          }
+        },
+        "required": [
+          "refresh_token"
+        ]
+      },
+      "LogoutDto": {
+        "type": "object",
+        "properties": {
+          "fcm_token": {
+            "type": "string",
+            "example": "firebase_device_token"
+          }
+        },
+        "required": [
+          "fcm_token"
+        ]
+      },
+      "CreateShiftDto": {
+        "type": "object",
+        "properties": {
+          "shift_date": {
+            "type": "string",
+            "example": "2026-05-21"
+          },
+          "shift_type": {
+            "type": "string",
+            "enum": [
+              "MORNING",
+              "NIGHT"
+            ],
+            "example": "NIGHT"
+          },
+          "regu_id": {
+            "type": "string",
+            "example": "uuid-of-regu",
+            "description": "If provided, auto-assigns all members of this Regu"
+          },
+          "assigned_linmas_ids": {
+            "example": [
+              "LMS-001",
+              "LMS-002"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "start_time": {
+            "type": "string",
+            "example": "19:00:00",
+            "description": "HH:MM:SS format"
+          },
+          "end_time": {
+            "type": "string",
+            "example": "07:00:00",
+            "description": "HH:MM:SS format"
+          }
+        },
+        "required": [
+          "shift_date",
+          "shift_type",
+          "start_time",
+          "end_time"
+        ]
+      },
+      "BulkCreateShiftDto": {
+        "type": "object",
+        "properties": {
+          "shifts": {
+            "description": "Array of shifts for the month",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CreateShiftDto"
+            }
+          }
+        },
+        "required": [
+          "shifts"
+        ]
+      },
+      "UpdateShiftDto": {
+        "type": "object",
+        "properties": {
+          "shift_type": {
+            "type": "string",
+            "enum": [
+              "MORNING",
+              "NIGHT"
+            ],
+            "example": "MORNING"
+          },
+          "regu_id": {
+            "type": "string",
+            "example": "uuid-of-regu"
+          },
+          "assigned_linmas_ids": {
+            "example": [
+              "LMS-003"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "SubstituteShiftDto": {
+        "type": "object",
+        "properties": {
+          "original_linmas_id": {
+            "type": "string",
+            "example": "uuid-of-original-linmas"
+          },
+          "substitute_linmas_id": {
+            "type": "string",
+            "example": "uuid-of-substitute-linmas"
+          },
+          "reason": {
+            "type": "string",
+            "example": "Sakit / Izin"
+          }
+        },
+        "required": [
+          "original_linmas_id",
+          "substitute_linmas_id",
+          "reason"
+        ]
+      },
+      "CreateLinmasDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "UpdateUserDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "ClockInDto": {
+        "type": "object",
+        "properties": {
+          "shift_assignment_id": {
+            "type": "string",
+            "example": "uuid-of-shift-assignment"
+          },
+          "latitude": {
+            "type": "number",
+            "example": -6.90481
+          },
+          "longitude": {
+            "type": "number",
+            "example": 107.610313
+          },
+          "photo": {
+            "type": "string",
+            "format": "binary",
+            "description": "Foto swafoto"
+          }
+        },
+        "required": [
+          "shift_assignment_id",
+          "latitude",
+          "longitude",
+          "photo"
+        ]
+      },
+      "ClockOutDto": {
+        "type": "object",
+        "properties": {
+          "attendance_session_id": {
+            "type": "string",
+            "example": "uuid-of-attendance-session"
+          },
+          "latitude": {
+            "type": "number",
+            "example": -6.90481
+          },
+          "longitude": {
+            "type": "number",
+            "example": 107.610313
+          },
+          "photo": {
+            "type": "string",
+            "format": "binary",
+            "description": "Foto swafoto"
+          }
+        },
+        "required": [
+          "attendance_session_id",
+          "latitude",
+          "longitude",
+          "photo"
+        ]
+      },
+      "GetMultipleFilesDto": {
+        "type": "object",
+        "properties": {
+          "file_ids": {
+            "example": [
+              "uuid-file-1",
+              "uuid-file-2"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "file_ids"
+        ]
+      },
+      "CreateIncidentDto": {
+        "type": "object",
+        "properties": {
+          "incident_type": {
+            "type": "string",
+            "example": "KEBAKARAN"
+          },
+          "title": {
+            "type": "string",
+            "example": "Rumah Pak Budi"
+          },
+          "description": {
+            "type": "string",
+            "example": "Api mulai membesar di dapur"
+          },
+          "latitude": {
+            "type": "number",
+            "example": -6.9683
+          },
+          "longitude": {
+            "type": "number",
+            "example": 107.5925
+          },
+          "photo": {
+            "type": "string",
+            "format": "binary",
+            "description": "Foto Bukti"
+          }
+        },
+        "required": [
+          "incident_type",
+          "title",
+          "description",
+          "latitude",
+          "longitude",
+          "photo"
+        ]
+      },
+      "UpdateIncidentStatusDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "MENUNGGU",
+              "DITANGANI",
+              "SELESAI",
+              "DIALIHKAN"
+            ],
+            "example": "SELESAI"
+          },
+          "resolution_notes": {
+            "type": "string",
+            "example": "Pelaku melarikan diri"
+          }
+        },
+        "required": [
+          "status",
+          "resolution_notes"
+        ]
+      },
+      "InterveneIncidentDto": {
+        "type": "object",
+        "properties": {
+          "new_handler_linmas_id": {
+            "type": "string",
+            "example": "uuid-of-new-handler"
+          },
+          "intervention_reason": {
+            "type": "string",
+            "example": "Handler tidak merespons"
+          }
+        },
+        "required": [
+          "new_handler_linmas_id",
+          "intervention_reason"
+        ]
+      },
+      "CreateIncidentRatingDto": {
+        "type": "object",
+        "properties": {
+          "rating": {
+            "type": "number",
+            "example": 5,
+            "description": "Bintang 1-5"
+          },
+          "review": {
+            "type": "string",
+            "example": "Petugas datang dengan sangat cepat."
+          }
+        },
+        "required": [
+          "rating"
+        ]
+      },
+      "CreateViolationDto": {
+        "type": "object",
+        "properties": {
+          "linmas_id": {
+            "type": "string",
+            "example": "uuid-of-linmas"
+          },
+          "violation_type": {
+            "type": "string",
+            "example": "Tidur saat jaga malam"
+          },
+          "sanction_level": {
+            "type": "string",
+            "enum": [
+              "SP1",
+              "SP2",
+              "SP3"
+            ],
+            "example": "SP1"
+          },
+          "incident_date": {
+            "type": "string",
+            "example": "2026-05-20"
+          }
+        },
+        "required": [
+          "linmas_id",
+          "violation_type",
+          "sanction_level",
+          "incident_date"
+        ]
+      },
+      "ApproveSalaryAdjustmentDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "VisitCheckpointDto": {
+        "type": "object",
+        "properties": {
+          "checkpoint_id": {
+            "type": "string",
+            "example": "uuid-checkpoint-id"
+          },
+          "latitude": {
+            "type": "number",
+            "example": -6.90481
+          },
+          "longitude": {
+            "type": "number",
+            "example": 107.61031
+          }
+        },
+        "required": [
+          "checkpoint_id",
+          "latitude",
+          "longitude"
+        ]
+      },
+      "CreatePatrolReportDto": {
+        "type": "object",
+        "properties": {
+          "patrol_type": {
+            "type": "string",
+            "enum": [
+              "SUSPICIOUS_OBJECT",
+              "FACILITY_DAMAGE",
+              "POTENTIAL_HAZARD"
+            ],
+            "example": "FACILITY_DAMAGE"
+          },
+          "description": {
+            "type": "string",
+            "example": "Lampu jalan mati di Blok B3"
+          },
+          "latitude": {
+            "type": "number",
+            "example": -6.96845
+          },
+          "longitude": {
+            "type": "number",
+            "example": 107.5922
+          },
+          "photo": {
+            "type": "string",
+            "format": "binary",
+            "description": "Foto temuan"
+          }
+        },
+        "required": [
+          "patrol_type",
+          "description",
+          "latitude",
+          "longitude",
+          "photo"
+        ]
+      },
+      "CreateReguDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "Regu 1"
+          },
+          "description": {
+            "type": "string",
+            "example": "  "
+          },
+          "linmas_ids": {
+            "example": [
+              "uuid-linmas-1",
+              "uuid-linmas-2"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "UpdateReguDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "Regu 2 Update"
+          },
+          "description": {
+            "type": "string",
+            "example": "update"
+          },
+          "linmas_ids": {
+            "example": [
+              "uuid-linmas-1",
+              "uuid-linmas-2"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    }
+  }
+}

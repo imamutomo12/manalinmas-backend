@@ -1,0 +1,458 @@
+@startuml
+class AppService {
+    +getHello(): string
+}
+class AppController {
+    -appService: AppService
+    +getHello(): string
+}
+class PrismaService extends PrismaClient implements OnModuleInit, OnModuleDestroy {
+    +onModuleInit(): Promise<void>
+    +onModuleDestroy(): Promise<void>
+}
+class PrismaModule
+interface GlobalResponse<T> {
+    +success: boolean
+    +message: string
+    +data: T
+}
+class TransformInterceptor<T> implements NestInterceptor {
+    +intercept(context: ExecutionContext, next: CallHandler<any>): Observable<GlobalResponse<T>>
+}
+class HttpExceptionFilter implements ExceptionFilter {
+    +catch(exception: HttpException, host: ArgumentsHost): void
+}
+class CommonModule
+class RegisterWargaDto {
+    +full_name: string
+    +phone_number: string
+    +email: string
+    +password: string
+    +address: string
+}
+class RegisterLinmasDto {
+    +full_name: string
+    +phone_number: string
+    +email: string
+    +password: string
+    +address: string
+    +employment_date: string
+    +regu_id: string
+}
+class LoginDto {
+    +email: string
+    +password: string
+    +fcm_token: string
+}
+class AuthService {
+    -prisma: PrismaService
+    -jwtService: JwtService
+    +registerWarga(dto: RegisterWargaDto): Promise<{ user_id: string; role: $Enums.Role; access_token: string; refresh_token: string; }>
+    +registerLinmas(dto: RegisterLinmasDto): Promise<{ linmas_id: string; role: $Enums.Role; }>
+    +login(dto: LoginDto): Promise<{ user_id: string; full_name: string; role: $Enums.Role; access_token: string; refresh_token: string; expires_in: number; }>
+    +refreshToken(token: string): Promise<{ access_token: string; }>
+    +logout(userId: string, fcmToken: string): Promise<boolean>
+    -generateTokens(userId: string, role: string): { accessToken: string; refreshToken: string; }
+}
+class RefreshTokenDto {
+    +refresh_token: string
+}
+class LogoutDto {
+    +fcm_token: string
+}
+class JwtAuthGuard extends  {
+    -reflector: Reflector
+    +canActivate(context: ExecutionContext): boolean | Promise<boolean> | Observable<boolean>
+    +handleRequest(err: any, user: any, info: any): any
+}
+class RolesGuard implements CanActivate {
+    -reflector: Reflector
+    +canActivate(context: ExecutionContext): boolean
+}
+class AuthController {
+    -authService: AuthService
+    +registerWarga(dto: RegisterWargaDto): Promise<{ success: boolean; message: string; data: { user_id: string; role: $Enums.Role; access_token: string; refresh_token: string; }; }>
+    +registerLinmas(dto: RegisterLinmasDto): Promise<{ success: boolean; message: string; data: { linmas_id: string; role: $Enums.Role; }; }>
+    +login(dto: LoginDto): Promise<{ success: boolean; message: string; data: { user_id: string; full_name: string; role: $Enums.Role; access_token: string; refresh_token: string; expires_in: number; }; }>
+    +refreshToken(dto: RefreshTokenDto): Promise<{ success: boolean; message: string; data: { access_token: string; }; }>
+    +logout(user: any, dto: LogoutDto): Promise<{ success: boolean; message: string; }>
+}
+class JwtStrategy extends  {
+    -prisma: PrismaService
+    +validate(payload: any): Promise<{ id: string; role: $Enums.Role; email: string; }>
+}
+class AuthModule
+class HomeService {
+    -prisma: PrismaService
+    -getTodayBounds(): { start: Date; end: Date; }
+    -formatTime(time: Date): string
+    +getKoordinatorHome(): Promise<{ role: "KOORDINATOR"; summary: { active_incidents: number; total_linmas: number; today_shifts_count: number; }; }>
+    +getLinmasHome(userId: string): Promise<{ role: "LINMAS"; summary: { regu_name: string | null; active_incidents: number; has_shift_today: boolean; shift_detail: { shift_date: string; shift_type: $Enums.ShiftType; start_time: string; end_time: string; } | null; }; }>
+    +getWargaHome(userId: string): Promise<{ role: "WARGA"; summary: { my_active_reports: number; }; }>
+}
+class HomeController {
+    -homeService: HomeService
+    +getKoordinatorHome(): Promise<{ success: boolean; message: string; data: { role: "KOORDINATOR"; summary: { active_incidents: number; total_linmas: number; today_shifts_count: number; }; }; }>
+    +getLinmasHome(user: any): Promise<{ success: boolean; message: string; data: { role: "LINMAS"; summary: { regu_name: string | null; active_incidents: number; has_shift_today: boolean; shift_detail: { shift_date: string; shift_type: $Enums.ShiftType; start_time: string; end_time: string; } | null; }; }; }>
+    +getWargaHome(user: any): Promise<{ success: boolean; message: string; data: { role: "WARGA"; summary: { my_active_reports: number; }; }; }>
+}
+class HomeModule
+class CreateShiftDto {
+    +shift_date: string
+    +shift_type: $Enums.ShiftType
+    +regu_id?: string | undefined
+    +assigned_linmas_ids?: string[] | undefined
+    +start_time: string
+    +end_time: string
+}
+class UpdateShiftDto {
+    +shift_type?: $Enums.ShiftType | undefined
+    +regu_id?: string | undefined
+    +assigned_linmas_ids?: string[] | undefined
+}
+class SubstituteShiftDto {
+    +original_linmas_id: string
+    +substitute_linmas_id: string
+    +reason: string
+}
+class BulkCreateShiftDto {
+    +shifts: CreateShiftDto[]
+}
+class ShiftsService {
+    -prisma: PrismaService
+    -parseDateTime(dateStr: string, timeStr: string): Date
+    +createShift(dto: CreateShiftDto): Promise<{ shift_id: string; }>
+    +createBulkShifts(dto: BulkCreateShiftDto): Promise<{ total_created: number; shift_ids: string[]; }>
+    +updateShift(shiftId: string, dto: UpdateShiftDto): Promise<boolean>
+    +deleteShift(shiftId: string): Promise<boolean>
+    +getShifts(month: number, year: number): Promise<{ shift_id: string; regu_name: string | null; shift_date: string; shift_type: $Enums.ShiftType; assigned_officers: { linmas_id: string; full_name: string; is_substitute: boolean; }[]; }[]>
+    +getMyShifts(linmasId: string, month: number, year: number): Promise<{ shift_id: string; shift_date: string; shift_type: $Enums.ShiftType; start_time: string; end_time: string; regu_name: string | null; is_substitute: boolean; }[]>
+    +assignSubstitute(shiftId: string, dto: SubstituteShiftDto): Promise<{ shift_id: string; original_linmas_id: string; substitute_linmas_id: string; bonus_amount: number; }>
+}
+class ShiftsController {
+    -shiftsService: ShiftsService
+    +createShift(dto: CreateShiftDto): Promise<{ success: boolean; message: string; data: { shift_id: string; }; }>
+    +createBulkShifts(dto: BulkCreateShiftDto): Promise<{ success: boolean; message: string; data: { total_created: number; shift_ids: string[]; }; }>
+    +getShifts(month: string, year: string): Promise<{ success: boolean; message: string; data: { shift_id: string; regu_name: string | null; shift_date: string; shift_type: $Enums.ShiftType; assigned_officers: { linmas_id: string; full_name: string; is_substitute: boolean; }[]; }[]; }>
+    +getMyShifts(user: any, month: string, year: string): Promise<{ success: boolean; message: string; data: { shift_id: string; shift_date: string; shift_type: $Enums.ShiftType; start_time: string; end_time: string; regu_name: string | null; is_substitute: boolean; }[]; }>
+    +updateShift(shiftId: string, dto: UpdateShiftDto): Promise<{ success: boolean; message: string; }>
+    +deleteShift(shiftId: string): Promise<{ success: boolean; message: string; }>
+    +assignSubstitute(shiftId: string, dto: SubstituteShiftDto): Promise<{ success: boolean; message: string; data: { shift_id: string; original_linmas_id: string; substitute_linmas_id: string; bonus_amount: number; }; }>
+}
+class ShiftsModule
+class CreateLinmasDto {
+    +fullName: string
+    +email: string
+    +password: string
+    +phone_number: string
+    +address: string
+    +regu_id?: string | undefined
+    +employment_date?: string | undefined
+}
+class UpdateUserDto {
+    +full_name?: string | undefined
+    +email?: string | undefined
+    +phone_number?: string | undefined
+    +address?: string | undefined
+    +regu_id?: string | undefined
+}
+class UsersService {
+    -prisma: PrismaService
+    +getUsers(role?: $Enums.Role | undefined): Promise<{ user_id: string; role: $Enums.Role; full_name: string; email: string; phone_number: string; regu_name: string; }[]>
+    +getUserById(id: string): Promise<{ user_id: string; role: $Enums.Role; email: string; phone_number: string; full_name: string; address: string; regu_name: string; employment_date: Date | null; appointment_date: Date | null; }>
+    +createLinmas(dto: CreateLinmasDto): Promise<{ user_id: string; role: $Enums.Role; full_name: string; email: string; phone_number: string; regu_name: string; }>
+    +updateUser(id: string, dto: UpdateUserDto): Promise<{ user_id: string; role: $Enums.Role; email: string; phone_number: string; full_name: string; address: string; regu_name: string; employment_date: Date | null; appointment_date: Date | null; }>
+    +deleteUser(id: string): Promise<{ success: boolean; message: string; }>
+}
+class GetUsersQueryDto {
+    +role?: $Enums.Role | undefined
+}
+class UsersController {
+    -usersService: UsersService
+    +getUsers(query: GetUsersQueryDto): Promise<{ success: boolean; message: string; data: { user_id: string; role: $Enums.Role; full_name: string; email: string; phone_number: string; regu_name: string; }[]; }>
+    +getUserById(id: string): Promise<{ success: boolean; message: string; data: { user_id: string; role: $Enums.Role; email: string; phone_number: string; full_name: string; address: string; regu_name: string; employment_date: Date | null; appointment_date: Date | null; }; }>
+    +createLinmas(dto: CreateLinmasDto): Promise<{ success: boolean; message: string; data: { user_id: string; role: $Enums.Role; full_name: string; email: string; phone_number: string; regu_name: string; }; }>
+    +updateUser(id: string, dto: UpdateUserDto): Promise<{ success: boolean; message: string; data: { user_id: string; role: $Enums.Role; email: string; phone_number: string; full_name: string; address: string; regu_name: string; employment_date: Date | null; appointment_date: Date | null; }; }>
+    +deleteUser(id: string): Promise<{ success: boolean; message: string; }>
+}
+class UsersModule
+class ClockInDto {
+    +shift_assignment_id: string
+    +latitude: number
+    +longitude: number
+    +photo: any
+}
+class ClockOutDto {
+    +attendance_session_id: string
+    +latitude: number
+    +longitude: number
+    +photo: any
+}
+class StorageService {
+    -b2: any
+    -prisma: PrismaService
+    +uploadFile(userId: string, file: Express.Multer.File, folder: string): Promise<{ file_id: string; cdn_url: string; mime_type: string; file_size_bytes: number; }>
+    +getFileMetadata(fileId: string): Promise<{ file_id: string; cdn_url: string; mime_type: string; }>
+    +getPrivateFileUrl(fileId: string): Promise<{ file_id: string; private_url: string; expires_in: number; }>
+    +getMultiplePrivateFileUrls(fileIds: string[]): Promise<{ file_id: string; private_url: string; expires_in: number; }[]>
+}
++calculateHaversineDistance(lat1: number, lon1: number, lat2: number, lon2: number): number
+class AttendanceService {
+    -GEOFENCE_LAT: -6.904810338149059
+    -GEOFENCE_LNG: 107.61031378245713
+    -GEOFENCE_RADIUS_METERS: 50
+    -prisma: PrismaService
+    -storageService: StorageService
+    +getGeofenceConfig(): { geofence_id: string; latitude: number; longitude: number; radius_meters: number; }
+    +clockIn(linmasId: string, dto: ClockInDto, photoFile: Express.Multer.File): Promise<{ attendance_session_id: string; attendance_status: "PRESENT" | "LATE"; verified_distance_meters: number; photo_url: string; }>
+    +clockOut(linmasId: string, dto: ClockOutDto, photoFile: Express.Multer.File): Promise<{ attendance_session_id: string; verified_distance_meters: number; clock_out_time: string; photo_url: string; }>
+    +getRecap(month: number, year: number): Promise<any[]>
+    +getTodayAttendanceStatus(linmasId: string): Promise<{ status: string; message: string; shift_assignment_id?: undefined; attendance_session_id?: undefined; } | { status: string; shift_assignment_id: string; message?: undefined; attendance_session_id?: undefined; } | { ...; }>
+}
+class AttendanceController {
+    -attendanceService: AttendanceService
+    +getStatus(user: any): Promise<{ success: boolean; message: string; data: { status: string; message: string; shift_assignment_id?: undefined; attendance_session_id?: undefined; } | { status: string; shift_assignment_id: string; message?: undefined; attendance_session_id?: undefined; } | { ...; }; }>
+    +getGeofence(): Promise<{ success: boolean; message: string; data: { geofence_id: string; latitude: number; longitude: number; radius_meters: number; }; }>
+    +clockIn(user: any, dto: ClockInDto, photo: Express.Multer.File): Promise<{ success: boolean; message: string; data: { attendance_session_id: string; attendance_status: "PRESENT" | "LATE"; verified_distance_meters: number; photo_url: string; }; }>
+    +clockOut(user: any, dto: ClockOutDto, photo: Express.Multer.File): Promise<{ success: boolean; message: string; data: { attendance_session_id: string; verified_distance_meters: number; clock_out_time: string; photo_url: string; }; }>
+    +getRecap(month: string, year: string): Promise<{ success: boolean; message: string; data: any[]; }>
+}
+class GeofenceController {
+    -attendanceService: AttendanceService
+    +getConfig(): { success: boolean; message: string; data: { geofence_id: string; latitude: number; longitude: number; radius_meters: number; }; }
+}
+enum UploadFolder {
+    ATTENDANCE
+    INCIDENTS
+    PATROLS
+}
+class UploadFileDto {
+    +folder: UploadFolder
+    +reference_id?: string | undefined
+}
+class GetMultipleFilesDto {
+    +file_ids: string[]
+}
+class StorageController {
+    -storageService: StorageService
+    +uploadImage(user: any, file: Express.Multer.File, dto: UploadFileDto): Promise<{ success: boolean; message: string; data: { file_id: string; cdn_url: string; mime_type: string; file_size_bytes: number; }; }>
+    +getFileMetadata(fileId: string): Promise<{ success: boolean; message: string; data: { file_id: string; cdn_url: string; mime_type: string; }; }>
+    +getPrivateFileView(fileId: string): Promise<{ success: boolean; message: string; data: { file_id: string; private_url: string; expires_in: number; }; }>
+    +getMultiplePrivateFileViews(dto: GetMultipleFilesDto): Promise<{ success: boolean; message: string; data: { file_id: string; private_url: string; expires_in: number; }[]; }>
+}
+class StorageModule
+class AttendanceModule
+class NotificationsService {
+    -logger: Logger
+    +sendToTopic(topic: string, title: string, body: string, data?: Record<string, string> | undefined): Promise<boolean>
+    +sendToDevice(token: string, title: string, body: string, data?: Record<string, string> | undefined): Promise<boolean>
+    +sendToDevices(tokens: string[], title: string, body: string, data?: Record<string, string> | undefined): Promise<boolean>
+}
+class CreateIncidentDto {
+    +incident_type: string
+    +title: string
+    +description: string
+    +latitude: number
+    +longitude: number
+    +photo: any
+}
+class UpdateIncidentStatusDto {
+    +status: $Enums.IncidentStatus
+    +resolution_notes: string
+}
+class InterveneIncidentDto {
+    +new_handler_linmas_id: string
+    +intervention_reason: string
+}
+class CreateIncidentRatingDto {
+    +rating: number
+    +review?: string | undefined
+}
+class IncidentsService {
+    -prisma: PrismaService
+    -storageService: StorageService
+    -notificationsService: NotificationsService
+    +createIncident(wargaId: string, dto: CreateIncidentDto, photoFile: Express.Multer.File): Promise<{ incident_id: string; status: $Enums.IncidentStatus; photo_url: string; }>
+    +getIncidents(): Promise<{ incident_id: any; title: any; status: any; reported_at: any; handler: { linmas_id: any; full_name: any; } | null; }[]>
+    +getActiveIncidents(): Promise<{ incident_id: any; title: any; status: any; reported_at: any; handler: { linmas_id: any; full_name: any; } | null; }[]>
+    -mapIncidentList(inc: any): { incident_id: any; title: any; status: any; reported_at: any; handler: { linmas_id: any; full_name: any; } | null; }
+    +getIncidentDetail(incidentId: string): Promise<{ incident_id: string; title: string; description: string; status: $Enums.IncidentStatus; location: { latitude: number; longitude: number; }; reporter: { warga_id: string; full_name: string; address: string; }; ... 6 more ...; rating: { ...; } | null; }>
+    +claimIncident(incidentId: string, linmasId: string): Promise<{ incident_id: string; status: "DITANGANI"; handler_name: string; }>
+    +updateIncidentStatus(incidentId: string, userId: string, dto: UpdateIncidentStatusDto): Promise<void>
+    +interveneIncident(incidentId: string, dto: InterveneIncidentDto): Promise<void>
+    +getMyIncidents(wargaId: string): Promise<{ incident_id: string; title: string; status: $Enums.IncidentStatus; reported_at: string; handler: string | null; rating: number | null; }[]>
+    +createIncidentRating(incidentId: string, wargaId: string, dto: CreateIncidentRatingDto): Promise<{ rating_id: string; score: number; }>
+}
+class IncidentsController {
+    -incidentsService: IncidentsService
+    +createIncident(user: any, dto: CreateIncidentDto, photo: Express.Multer.File): Promise<{ success: boolean; message: string; data: { incident_id: string; status: $Enums.IncidentStatus; photo_url: string; }; }>
+    +getIncidents(): Promise<{ success: boolean; message: string; data: { incident_id: any; title: any; status: any; reported_at: any; handler: { linmas_id: any; full_name: any; } | null; }[]; }>
+    +getActiveIncidents(): Promise<{ success: boolean; message: string; data: { incident_id: any; title: any; status: any; reported_at: any; handler: { linmas_id: any; full_name: any; } | null; }[]; }>
+    +getMyIncidents(user: any): Promise<{ success: boolean; message: string; data: { incident_id: string; title: string; status: $Enums.IncidentStatus; reported_at: string; handler: string | null; rating: number | null; }[]; }>
+    +getIncidentDetail(incidentId: string): Promise<{ success: boolean; message: string; data: { incident_id: string; title: string; description: string; status: $Enums.IncidentStatus; location: { latitude: number; longitude: number; }; ... 7 more ...; rating: { ...; } | null; }; }>
+    +claimIncident(user: any, incidentId: string): Promise<{ success: boolean; message: string; data: { incident_id: string; status: "DITANGANI"; handler_name: string; }; }>
+    +updateIncidentStatus(user: any, incidentId: string, dto: UpdateIncidentStatusDto): Promise<{ success: boolean; message: string; }>
+    +interveneIncident(incidentId: string, dto: InterveneIncidentDto): Promise<{ success: boolean; message: string; }>
+    +createIncidentRating(user: any, incidentId: string, dto: CreateIncidentRatingDto): Promise<{ success: boolean; message: string; data: { rating_id: string; score: number; }; }>
+}
+class MyIncidentsController {
+    -incidentsService: IncidentsService
+    +getMyIncidents(user: any): Promise<{ success: boolean; message: string; data: { incident_id: string; title: string; status: $Enums.IncidentStatus; reported_at: string; handler: string | null; rating: number | null; }[]; }>
+}
+class NotificationsModule
+class IncidentsModule
+class CreateViolationDto {
+    +linmas_id: string
+    +violation_type: string
+    +sanction_level: $Enums.SanctionLevel
+    +incident_date: string
+}
+class ViolationsService {
+    -prisma: PrismaService
+    +createViolation(koordinatorId: string, dto: CreateViolationDto): Promise<{ violation_id: string; }>
+    +getViolations(linmasId?: string | undefined): Promise<{ violation_id: string; linmas_name: string; issued_by: string; violation_type: string; sanction_level: $Enums.SanctionLevel; incident_date: string; }[]>
+}
+class ViolationsController {
+    -violationsService: ViolationsService
+    +createViolation(user: any, dto: CreateViolationDto): Promise<{ success: boolean; message: string; data: { violation_id: string; }; }>
+    +getViolations(user: any, linmasId?: string | undefined): Promise<{ success: boolean; message: string; data: { violation_id: string; linmas_name: string; issued_by: string; violation_type: string; sanction_level: $Enums.SanctionLevel; incident_date: string; }[]; }>
+}
+class ViolationsModule
+class SalariesService {
+    -BONUS_AMOUNT: 50000
+    -DEDUCTION_AMOUNT: 50000
+    -prisma: PrismaService
+    +calculateAdjustmentRecap(month: number, year: number, linmasId?: string | undefined): Promise<any[]>
+    -createEmptyRecord(linmasId: string, fullName: string, reguName: string | null): { linmas_id: string; full_name: string; regu_name: string | null; total_bonuses: number; total_deductions: number; net_adjustment: number; bonus_details: never[]; deduction_details: never[]; }
+}
+class ApproveSalaryAdjustmentDto {
+    +approved: boolean
+}
+class SalaryAdjustmentsService {
+    -BONUS_AMOUNT: 50000
+    -DEDUCTION_AMOUNT: 50000
+    -prisma: PrismaService
+    +buildAdjustmentRecap(month: number, year: number, linmasId?: string | undefined): Promise<{ net_adjustment: number; linmas_id: string; full_name: string; regu_name: string | null; total_bonuses: number; total_deductions: number; is_approved: boolean; approved_at: string | null; bonus_details: AdjustmentDetail[]; deduction_details: AdjustmentDetail[]; }[]>
+    +saveMonthlyAdjustmentRecap(month: number, year: number, linmasId?: string | undefined): Promise<{ linmas_id: string; full_name: string; regu_name: string | null; total_bonuses: number; total_deductions: number; net_adjustment: number; is_approved: boolean; approved_at: string | null; bonus_details: { ...; }[]; deduction_details: { ...; }[]; }[]>
+    +getSavedMonthlyAdjustmentRecap(month: number, year: number, linmasId?: string | undefined): Promise<{ linmas_id: string; full_name: string; regu_name: string | null; total_bonuses: number; total_deductions: number; net_adjustment: number; is_approved: boolean; approved_at: string | null; bonus_details: { ...; }[]; deduction_details: { ...; }[]; }[]>
+    +setApproval(periodId: string, approved: boolean, approverId: string): Promise<{ success: boolean; approved: boolean; }>
+    -createEmptyRecord(linmasId: string, fullName: string, reguName: string | null): AdjustmentRecapRecord
+}
+class SalariesController {
+    -salariesService: SalariesService
+    -salaryAdjustmentsService: SalaryAdjustmentsService
+    +getAllAdjustments(month: string, year: string): Promise<{ success: boolean; message: string; data: any[]; }>
+    +getMyAdjustments(user: any, month: string, year: string): Promise<{ success: boolean; message: string; data: any[]; }>
+    +generate(month: string, year: string): Promise<{ success: boolean; message: string; data: { linmas_id: string; full_name: string; regu_name: string | null; total_bonuses: number; total_deductions: number; net_adjustment: number; is_approved: boolean; approved_at: string | null; bonus_details: { ...; }[]; deduction_details: { ...; }[]; }[]; }>
+    +getSavedRecap(month: string, year: string): Promise<{ success: boolean; message: string; data: { linmas_id: string; full_name: string; regu_name: string | null; total_bonuses: number; total_deductions: number; net_adjustment: number; is_approved: boolean; approved_at: string | null; bonus_details: { ...; }[]; deduction_details: { ...; }[]; }[]; }>
+    +approveSalary(periodId: string, user: any, dto: ApproveSalaryAdjustmentDto): Promise<{ success: boolean; message: string; data: { success: boolean; approved: boolean; }; }>
+}
+class SalariesModule
+class VisitCheckpointDto {
+    +checkpoint_id: string
+    +latitude: number
+    +longitude: number
+}
+class CreatePatrolReportDto {
+    +patrol_type: $Enums.PatrolType
+    +description: string
+    +latitude: number
+    +longitude: number
+    +photo: any
+}
+class PatrolsService {
+    -prisma: PrismaService
+    -storageService: StorageService
+    -getActiveSession(linmasId: string): Promise<{ id: string; shiftAssignmentId: string; status: $Enums.AttendanceStatus; completedAt: Date | null; linmasProfileUserId: string | null; }>
+    +getCheckpoints(): Promise<{ checkpoint_id: string; name: string; description: string | null; latitude: number; longitude: number; radius: number; block: string | null; rt: string | null; }[]>
+    +visitCheckpoint(linmasId: string, dto: VisitCheckpointDto): Promise<{ visit_id: string; verified_distance: number; entered_at: string; }>
+    +getVisitHistory(linmasId: string): Promise<{ visit_id: string; checkpoint_id: string; checkpoint_name: string; entered_at: string; }[]>
+    +getPatrolSummary(linmasId: string): Promise<{ visited: number; total: number; percentage: number; }>
+    +createPatrolReport(linmasId: string, dto: CreatePatrolReportDto, photoFile: Express.Multer.File): Promise<{ patrol_id: string; photo_url: string; }>
+    +getPatrolReports(): Promise<{ patrol_id: string; reporter: { linmas_id: string; full_name: string; regu_name: string | null; }; patrol_type: $Enums.PatrolType; description: string; location: { latitude: number; longitude: number; }; reported_at: string; }[]>
+    +getPatrolReportDetail(patrolId: string): Promise<{ patrol_id: string; reporter: { linmas_id: string; full_name: string; regu_name: string | null; }; patrol_type: $Enums.PatrolType; description: string; location: { latitude: number; longitude: number; }; photo_url: string; url_expires_in_seconds: number; reported_at: string; }>
+}
+class PatrolsController {
+    -patrolsService: PatrolsService
+    +getCheckpoints(): Promise<{ success: boolean; message: string; data: { checkpoint_id: string; name: string; description: string | null; latitude: number; longitude: number; radius: number; block: string | null; rt: string | null; }[]; }>
+    +visitCheckpoint(user: any, dto: VisitCheckpointDto): Promise<{ success: boolean; message: string; data: { visit_id: string; verified_distance: number; entered_at: string; }; }>
+    +getVisitHistory(user: any): Promise<{ success: boolean; message: string; data: { visit_id: string; checkpoint_id: string; checkpoint_name: string; entered_at: string; }[]; }>
+    +getPatrolSummary(user: any): Promise<{ success: boolean; message: string; data: { visited: number; total: number; percentage: number; }; }>
+    +createPatrolReport(user: any, dto: CreatePatrolReportDto, photo: Express.Multer.File): Promise<{ success: boolean; message: string; data: { patrol_id: string; photo_url: string; }; }>
+    +getPatrolReports(): Promise<{ success: boolean; message: string; data: { patrol_id: string; reporter: { linmas_id: string; full_name: string; regu_name: string | null; }; patrol_type: $Enums.PatrolType; description: string; location: { ...; }; reported_at: string; }[]; }>
+    +getPatrolReportDetail(patrolId: string): Promise<{ success: boolean; message: string; data: { patrol_id: string; reporter: { linmas_id: string; full_name: string; regu_name: string | null; }; patrol_type: $Enums.PatrolType; description: string; location: { ...; }; photo_url: string; url_expires_in_seconds: number; reported_at: string; }; }>
+}
+class PatrolsModule
+class LoggerMiddleware implements NestMiddleware {
+    -logger: Logger
+    +use(request: Request<ParamsDictionary, any, any, QueryString.ParsedQs, Record<string, any>>, response: Response<any, Record<string, any>>, next: NextFunction): void
+}
+class CreateReguDto {
+    +name: string
+    +description?: string | undefined
+    +linmas_ids?: string[] | undefined
+}
+class UpdateReguDto {
+    +name?: string | undefined
+    +description?: string | undefined
+    +linmas_ids?: string[] | undefined
+}
+class ReguService {
+    -prisma: PrismaService
+    +createRegu(dto: CreateReguDto): Promise<{ regu_id: string; }>
+    +getRegus(): Promise<{ regu_id: string; name: string; description: string | null; total_members: number; created_at: string; }[]>
+    +getReguById(id: string): Promise<{ regu_id: string; name: string; description: string | null; members: { linmas_id: string; full_name: string; phone_number: string; }[]; }>
+    +updateRegu(id: string, dto: UpdateReguDto): Promise<boolean>
+    +deleteRegu(id: string): Promise<boolean>
+}
+class ReguController {
+    -reguService: ReguService
+    +createRegu(dto: CreateReguDto): Promise<{ success: boolean; message: string; data: { regu_id: string; }; }>
+    +getRegus(): Promise<{ success: boolean; message: string; data: { regu_id: string; name: string; description: string | null; total_members: number; created_at: string; }[]; }>
+    +getReguById(reguId: string): Promise<{ success: boolean; message: string; data: { regu_id: string; name: string; description: string | null; members: { linmas_id: string; full_name: string; phone_number: string; }[]; }; }>
+    +updateRegu(reguId: string, dto: UpdateReguDto): Promise<{ success: boolean; message: string; }>
+    +deleteRegu(reguId: string): Promise<{ success: boolean; message: string; }>
+}
+class ReguModule
+class ProfileService {
+    -prisma: PrismaService
+    +getMyProfile(userId: string): Promise<{ full_name: string; address: string; employment_date: string; regu_name: string | null; current_sanction_level: $Enums.SanctionLevel | null; user_id: string; email: string; phone_number: string; role: $Enums.Role; } | { ...; } | { ...; }>
+}
+class ProfileController {
+    -profileService: ProfileService
+    +getMyProfile(user: any): Promise<{ success: boolean; message: string; data: { full_name: string; address: string; employment_date: string; regu_name: string | null; current_sanction_level: $Enums.SanctionLevel | null; user_id: string; email: string; phone_number: string; role: $Enums.Role; } | { ...; } | { ...; }; }>
+}
+class ProfileModule
+class PerformanceService {
+    -prisma: PrismaService
+    +getMonthlyEvaluation(month: number, year: number, specificLinmasId?: string | undefined): Promise<Record<string, any>[]>
+}
+class PerformanceController {
+    -performanceService: PerformanceService
+    +getAllEvaluations(month: string, year: string): Promise<{ success: boolean; message: string; data: Record<string, any>[]; }>
+    +getMyEvaluation(user: any, month: string, year: string): Promise<{ success: boolean; message: string; data: Record<string, any>[]; }>
+}
+class PerformanceModule
+class AppModule implements NestModule {
+    +configure(consumer: MiddlewareConsumer): void
+}
+class DateUtil {
+    +{static} getMonthRange(month: number, year: number): { startDate: Date; endDate: Date; }
+}
++bootstrap(): Promise<void>
++bootstrap(): Promise<void>
++bootstrap(): Promise<void>
+class ClientGpsDto {
+    +latitude: number
+    +longitude: number
+    +accuracy_meters: number
+}
+class ClaimIncidentDto {
+    +linmas_id: string
+    +claimed_at: string
+}
+class ClientGpsLocationDto {
+    +latitude: number
+    +longitude: number
+}
+@enduml
