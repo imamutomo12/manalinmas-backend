@@ -1,18 +1,59 @@
-version: '3.8'
-
 services:
   postgres:
     image: postgres:17.5
-    container_name: manalinmas_db
-    environment:
-      POSTGRES_USER: linmas_user
-      POSTGRES_PASSWORD: linmas_password
-      POSTGRES_DB: manalinmas_db
-    ports:
-      - "5432:5432"
-    volumes:
-      - pgdata:/var/lib/postgresql/data
+    container_name: manalinmas_postgres
+
     restart: unless-stopped
 
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-manalinmas_db}
+      POSTGRES_USER: ${POSTGRES_USER:-linmas_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-linmas_password}
+
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+    ports:
+      - '5433:5432'
+
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'pg_isready -U ${POSTGRES_USER:-linmas_user} -d ${POSTGRES_DB:-manalinmas_db}',
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+    networks:
+      - manalinmas_network
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+    container_name: manalinmas_backend
+
+    restart: unless-stopped
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+    env_file:
+      - .env
+
+    ports:
+      - '3000:3000'
+
+    networks:
+      - manalinmas_network
+
 volumes:
-  pgdata:
+  postgres_data:
+
+networks:
+  manalinmas_network:
+    driver: bridge
