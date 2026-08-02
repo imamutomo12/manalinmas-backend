@@ -61,8 +61,15 @@ export class ReguService {
     const regus = await this.prisma.regu.findMany({
       orderBy: { name: 'asc' },
       include: {
+        linmasMembers: {
+          select: {
+            userId: true,
+          },
+        },
         _count: {
-          select: { linmasMembers: true },
+          select: {
+            linmasMembers: true,
+          },
         },
       },
     });
@@ -71,6 +78,7 @@ export class ReguService {
       regu_id: r.id,
       name: r.name,
       description: r.description,
+      linmas_ids: r.linmasMembers.map((m) => m.userId),
       total_members: r._count.linmasMembers,
       created_at: r.created_at.toISOString(),
     }));
