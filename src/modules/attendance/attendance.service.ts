@@ -358,7 +358,7 @@ export class AttendanceService {
       throw new NotFoundException('Jadwal shift tidak ditemukan.');
     }
 
-    const note = `[Konfirmasi WA Koordinator] ${dto.reason}`;
+    const note = dto.reason;
 
     // 2. Cek apakah sudah ada AttendanceSession untuk shift ini
     const existingSession = await this.prisma.attendanceSession.findFirst({
@@ -379,15 +379,21 @@ export class AttendanceService {
       const updatedSession = await this.prisma.attendanceSession.update({
         where: { id: existingSession.id },
         data: {
+          id: existingSession.id,
           status: AttendanceStatus.EXCUSED, // Ubah dari ABSENT ke EXCUSED
           excuseNote: note,
           completedAt: new Date(),
         },
       });
 
+      const updatedAttendanceStatus = {
+        id: assignment.id,
+        note: note,
+      };
+
       return {
         message: `Status ${assignment.linmas.fullName} berhasil diubah dari ABSENT menjadi EXCUSED.`,
-        data: updatedSession,
+        data: updatedAttendanceStatus,
       };
     } else {
       // ---------------------------------------------------------
@@ -403,10 +409,14 @@ export class AttendanceService {
           excuseNote: note,
         },
       });
+      const newAttendanceStatus = {
+        id: assignment.id,
+        note: note,
+      };
 
       return {
         message: `Izin untuk ${assignment.linmas.fullName} berhasil dicatat. Sistem tidak akan memvonis absen.`,
-        data: newExcusedSession,
+        data: newAttendanceStatus,
       };
     }
   }
