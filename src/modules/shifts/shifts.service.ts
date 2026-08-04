@@ -195,6 +195,7 @@ export class ShiftsService {
       shift_date: shift.shiftDate.toISOString().split('T')[0],
       shift_type: shift.shiftType,
       assigned_officers: shift.assignments.map((assignment) => ({
+        id: assignment.id,
         linmas_id: assignment.linmas.userId,
         full_name: assignment.linmas.fullName,
         is_substitute: assignment.isSubstitute,

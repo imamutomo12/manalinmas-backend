@@ -2,20 +2,28 @@ import {
   Injectable,
   BadRequestException,
   NotFoundException,
+  Logger,
 } from '@nestjs/common';
+import { Cron } from '@nestjs/schedule';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ClockInDto } from './dto/clock-in.dto';
 import { ClockOutDto } from './dto/clock-out.dto';
 import { StorageService } from '../storage/storage.service'; // Import StorageService
 import { calculateHaversineDistance } from '../../common/utils/geo.util';
-import { AttendanceStatus, LogType, GeofenceStatus } from '@prisma/client';
+import {
+  AttendanceStatus,
+  LogType,
+  GeofenceStatus,
+  ShiftType,
+} from '@prisma/client';
+import { HandlePermissionDto } from './dto/permission.dto';
 
 @Injectable()
 export class AttendanceService {
   private readonly GEOFENCE_LAT = -6.904810338149059;
   private readonly GEOFENCE_LNG = 107.61031378245713;
   private readonly GEOFENCE_RADIUS_METERS = 50.0;
-
+  private readonly logger = new Logger(AttendanceService.name);
   constructor(
     private prisma: PrismaService,
     private storageService: StorageService,
@@ -334,5 +342,132 @@ export class AttendanceService {
     }
 
     return { status: 'CAN_CLOCK_OUT', attendance_session_id: session.id };
+  }
+
+  async handleCoordinatorPermission(
+    koordinatorId: string,
+    dto: HandlePermissionDto,
+  ) {
+    // 1. Validasi jadwal shift
+    const assignment = await this.prisma.shiftAssignment.findUnique({
+      where: { id: dto.shift_assignment_id },
+      include: { shift: true, linmas: true },
+    });
+
+    if (!assignment) {
+      throw new NotFoundException('Jadwal shift tidak ditemukan.');
+    }
+
+    const note = `[Konfirmasi WA Koordinator] ${dto.reason}`;
+
+    // 2. Cek apakah sudah ada AttendanceSession untuk shift ini
+    const existingSession = await this.prisma.attendanceSession.findFirst({
+      where: { shiftAssignmentId: assignment.id },
+    });
+
+    if (existingSession) {
+      // ---------------------------------------------------------
+      // SKENARIO B: Cron sudah jalan, statusnya sudah ABSENT
+      // Lakukan UPDATE (Override)
+      // ---------------------------------------------------------
+      if (existingSession.status === AttendanceStatus.EXCUSED) {
+        throw new BadRequestException(
+          'Anggota ini sudah ditandai Izin/Sakit sebelumnya.',
+        );
+      }
+
+      const updatedSession = await this.prisma.attendanceSession.update({
+        where: { id: existingSession.id },
+        data: {
+          status: AttendanceStatus.EXCUSED, // Ubah dari ABSENT ke EXCUSED
+          excuseNote: note,
+          completedAt: new Date(),
+        },
+      });
+
+      return {
+        message: `Status ${assignment.linmas.fullName} berhasil diubah dari ABSENT menjadi EXCUSED.`,
+        data: updatedSession,
+      };
+    } else {
+      // ---------------------------------------------------------
+      // SKENARIO A: Cron belum jalan, belum ada data presensi
+      // Lakukan INSERT (Buat data EXCUSED baru)
+      // ---------------------------------------------------------
+      const newExcusedSession = await this.prisma.attendanceSession.create({
+        data: {
+          shiftAssignmentId: assignment.id,
+          linmasProfileUserId: assignment.linmasId,
+          status: AttendanceStatus.EXCUSED,
+          completedAt: new Date(), // Diisi agar Cron Job mengabaikan data ini nanti
+          excuseNote: note,
+        },
+      });
+
+      return {
+        message: `Izin untuk ${assignment.linmas.fullName} berhasil dicatat. Sistem tidak akan memvonis absen.`,
+        data: newExcusedSession,
+      };
+    }
+  }
+
+  private async processAutomatedAbsence(shiftType: ShiftType) {
+    const now = new Date();
+    // Ambil tanggal hari ini (tanpa jam)
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    // Cari penugasan shift hari ini yang BELUM memiliki AttendanceSession (belum clock-in)
+    const missedAssignments = await this.prisma.shiftAssignment.findMany({
+      where: {
+        shift: {
+          shiftDate: today,
+          shiftType: shiftType,
+        },
+        attendanceSessions: {
+          none: {}, // PENTING: Hanya cari yang belum ada session presensinya
+        },
+      },
+      include: {
+        linmas: { include: { user: true } }, // Untuk data notifikasi
+      },
+    });
+
+    if (missedAssignments.length === 0) {
+      this.logger.log(
+        `[CRON ${shiftType}] Semua anggota shift ${shiftType} hadir.`,
+      );
+      return;
+    }
+
+    // Buat record ABSENT secara massal (Bulk Insert)
+    const createPromises = missedAssignments.map((assignment) =>
+      this.prisma.attendanceSession.create({
+        data: {
+          shiftAssignmentId: assignment.id,
+          linmasProfileUserId: assignment.linmasId,
+          status: AttendanceStatus.ABSENT,
+          completedAt: now, // Diisi agar tidak diproses ulang oleh cron rekonsiliasi
+        },
+      }),
+    );
+
+    await this.prisma.$transaction(createPromises);
+
+    // [TAMBAHAN] Kirim Notifikasi ke Koordinator Keamanan di sini
+    // await this.notificationService.alertKoordinator(missedAssignments);
+
+    this.logger.warn(
+      `[CRON ${shiftType}] ${missedAssignments.length} anggota divonis ABSENT tanpa kabar.`,
+    );
+  }
+
+  @Cron('30 7 * * *', { timeZone: 'Asia/Jakarta' })
+  async handleMorningShiftAbsence() {
+    await this.processAutomatedAbsence(ShiftType.MORNING);
+  }
+
+  @Cron('30 19 * * *', { timeZone: 'Asia/Jakarta' })
+  async handleNightShiftAbsence() {
+    await this.processAutomatedAbsence(ShiftType.NIGHT);
   }
 }

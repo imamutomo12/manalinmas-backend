@@ -27,6 +27,7 @@ import {
   ApiOperation,
   ApiQuery,
 } from '@nestjs/swagger';
+import { HandlePermissionDto } from './dto/permission.dto';
 
 @ApiTags('Attendance')
 @ApiBearerAuth()
@@ -106,5 +107,26 @@ export class AttendanceController {
       parseInt(year, 10),
     );
     return { success: true, message: 'Attendance recap loaded', data };
+  }
+
+  @Post('permission')
+  @Roles(Role.KOORDINATOR)
+  @ApiOperation({ summary: 'endpoint buat kirim izin presensi' })
+  async handlePermission(
+    @CurrentUser() user: any,
+    @Body() dto: HandlePermissionDto,
+  ) {
+    const koordinatorId = user?.id || user?.sub;
+
+    const result = await this.attendanceService.handleCoordinatorPermission(
+      koordinatorId,
+      dto,
+    );
+
+    return {
+      success: true,
+      message: result.message,
+      data: result.data,
+    };
   }
 }

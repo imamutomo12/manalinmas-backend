@@ -25,6 +25,7 @@ enum AttendanceStatus {
   PRESENT
   ABSENT
   LATE
+  EXCUSED
 }
 
 enum LogType {
@@ -196,6 +197,8 @@ model AttendanceSession {
   status            AttendanceStatus
   completedAt       DateTime?        @map("completed_at")
   ended_at DateTime? @map("ended_at")
+  excuseNote        String?          @map("excuse_note") @db.Text // <-- Tambahan untuk alasan
+
   shiftAssignment     ShiftAssignment @relation(fields: [shiftAssignmentId], references: [id], onDelete: Cascade)
   logs                AttendanceLog[]
   visits              PatrolVisit[]
