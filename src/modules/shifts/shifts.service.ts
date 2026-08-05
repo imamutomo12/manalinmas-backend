@@ -184,7 +184,7 @@ export class ShiftsService {
       where: { shiftDate: { gte: startDate, lt: endDate } },
       include: {
         regu: true,
-        assignments: { include: { linmas: true } },
+        assignments: { include: { linmas: true, attendanceSessions: true } },
       },
       orderBy: { shiftDate: 'asc' },
     });
@@ -199,6 +199,10 @@ export class ShiftsService {
         linmas_id: assignment.linmas.userId,
         full_name: assignment.linmas.fullName,
         is_substitute: assignment.isSubstitute,
+        attendance: assignment.attendanceSessions.map((attendance) => {
+          id: attendance.id;
+          status: attendance.status;
+        }),
       })),
     }));
   }
