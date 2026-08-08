@@ -480,7 +480,6 @@ export class AttendanceService {
       patrol_visits: session.visits.map((v) => ({
         checkpoint_name: v.checkpoint.name,
         entered_at: v.enteredAt,
-        visit_count: v.visitCount,
       })),
     };
   }
