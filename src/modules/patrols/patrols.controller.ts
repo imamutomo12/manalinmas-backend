@@ -4,6 +4,7 @@ import {
   Get,
   Param,
   Body,
+  Query,
   UseGuards,
   UseInterceptors,
   UploadedFile,
@@ -12,6 +13,7 @@ import {
   FileTypeValidator,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { PatrolType, ShiftType } from '@prisma/client';
 import { PatrolsService } from './patrols.service';
 import { VisitCheckpointDto } from './dto/visit-checkpoint.dto';
 import { CreatePatrolReportDto } from './dto/create-patrol-report.dto';
@@ -25,6 +27,7 @@ import {
   ApiBearerAuth,
   ApiOperation,
   ApiConsumes,
+  ApiQuery,
 } from '@nestjs/swagger';
 
 @ApiTags('Patrols')
@@ -110,8 +113,50 @@ export class PatrolsController {
   @Get('report')
   @Roles(Role.KOORDINATOR, Role.LINMAS)
   @ApiOperation({ summary: 'Get List of Patrol Reports' })
-  async getPatrolReports() {
-    const data = await this.patrolsService.getPatrolReports();
+  @ApiQuery({ name: 'patrol_type', required: false, enum: PatrolType })
+  @ApiQuery({ name: 'regu_id', required: false, type: String })
+  @ApiQuery({ name: 'linmas_id', required: false, type: String })
+  @ApiQuery({
+    name: 'date',
+    required: false,
+    type: String,
+    description: 'YYYY-MM-DD, single day',
+  })
+  @ApiQuery({ name: 'date_from', required: false, type: String })
+  @ApiQuery({ name: 'date_to', required: false, type: String })
+  @ApiQuery({ name: 'shift_type', required: false, enum: ShiftType })
+  @ApiQuery({
+    name: 'shift_assignment_id',
+    required: false,
+    type: String,
+    description: 'Filter presisi ke satu occurrence shift tertentu',
+  })
+  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  async getPatrolReports(
+    @Query('patrol_type') patrolType?: PatrolType,
+    @Query('regu_id') reguId?: string,
+    @Query('linmas_id') linmasId?: string,
+    @Query('date') date?: string,
+    @Query('date_from') dateFrom?: string,
+    @Query('date_to') dateTo?: string,
+    @Query('shift_type') shiftType?: ShiftType,
+    @Query('shift_assignment_id') shiftAssignmentId?: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    const data = await this.patrolsService.getPatrolReports({
+      patrolType,
+      reguId,
+      linmasId,
+      date,
+      dateFrom,
+      dateTo,
+      shiftType,
+      shiftAssignmentId,
+      page: page ? parseInt(page, 10) : undefined,
+      limit: limit ? parseInt(limit, 10) : undefined,
+    });
     return { success: true, message: 'Patrol report list loaded', data };
   }
 

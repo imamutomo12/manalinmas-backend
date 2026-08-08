@@ -177,8 +177,8 @@ export class ShiftsService {
     if (!month || !year)
       throw new BadRequestException('Month and year are required');
 
-    const startDate = new Date(year, month - 1, 1);
-    const endDate = new Date(year, month, 1);
+    const startDate = new Date(Date.UTC(year, month - 1, 1));
+    const endDate = new Date(Date.UTC(year, month, 1));
 
     const shifts = await this.prisma.shift.findMany({
       where: { shiftDate: { gte: startDate, lt: endDate } },

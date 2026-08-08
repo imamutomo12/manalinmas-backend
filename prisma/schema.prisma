@@ -202,6 +202,7 @@ model AttendanceSession {
   shiftAssignment     ShiftAssignment @relation(fields: [shiftAssignmentId], references: [id], onDelete: Cascade)
   logs                AttendanceLog[]
   visits              PatrolVisit[]
+  patrolReports       PatrolReport[]
   linmasProfile       LinmasProfile?  @relation(fields: [linmasProfileUserId], references: [userId])
   linmasProfileUserId String?         @db.Uuid
 
@@ -257,12 +258,11 @@ model PatrolVisit {
   latitude  Decimal @db.Decimal(10, 7)
   longitude Decimal @db.Decimal(10, 7)
 
-  visitCount Int @default(1) @map("visit_count")
 
   attendanceSession AttendanceSession @relation(fields: [attendanceSessionId], references: [id], onDelete: Cascade)
   checkpoint        PatrolCheckpoint  @relation(fields: [checkpointId], references: [id])
 
-  @@unique([attendanceSessionId, checkpointId])
+  @@index([attendanceSessionId, checkpointId])
   @@map("patrol_visits")
 }
 
@@ -330,11 +330,19 @@ model PatrolReport {
   photoFileId String     @unique @map("photo_file_id") @db.Uuid
   reportedAt  DateTime   @default(now()) @map("reported_at")
 
+  // Sesi presensi (shift occurrence) saat laporan ini dibuat. Nullable agar
+  // tidak breaking terhadap data lama, dan agar pembuatan laporan tetap bisa
+  // jalan walau (secara data) tidak ada sesi aktif yang ditemukan.
+  attendanceSessionId String?            @map("attendance_session_id") @db.Uuid
+  attendanceSession    AttendanceSession? @relation(fields: [attendanceSessionId], references: [id])
+
   linmas    LinmasProfile @relation(fields: [linmasId], references: [userId])
   photoFile File          @relation(fields: [photoFileId], references: [id])
 
   @@map("patrol_reports")
 }
+
+
 
 model Violation {
   id             String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid

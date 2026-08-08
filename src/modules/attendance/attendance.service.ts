@@ -20,15 +20,15 @@ import { HandlePermissionDto } from './dto/permission.dto';
 
 @Injectable()
 export class AttendanceService {
-  private readonly GEOFENCE_LAT = -6.904810338149059;
-  private readonly GEOFENCE_LNG = 107.61031378245713;
+  private readonly GEOFENCE_LAT = -6.967996453272667;
+  private readonly GEOFENCE_LNG = 107.58149731006604;
   private readonly GEOFENCE_RADIUS_METERS = 50.0;
   private readonly logger = new Logger(AttendanceService.name);
+
   constructor(
     private prisma: PrismaService,
     private storageService: StorageService,
   ) {}
-
   getGeofenceConfig() {
     return {
       geofence_id: 'GEO_RW07_SUKAMENAK',
@@ -342,6 +342,147 @@ export class AttendanceService {
     }
 
     return { status: 'CAN_CLOCK_OUT', attendance_session_id: session.id };
+  }
+
+  async getTodayAttendanceData(dateStr?: string, shiftType?: ShiftType) {
+    const targetDate = dateStr ? new Date(dateStr) : new Date();
+    const startOfDay = new Date(
+      targetDate.getFullYear(),
+      targetDate.getMonth(),
+      targetDate.getDate(),
+    );
+    const endOfDay = new Date(
+      targetDate.getFullYear(),
+      targetDate.getMonth(),
+      targetDate.getDate() + 1,
+    );
+
+    const assignments = await this.prisma.shiftAssignment.findMany({
+      where: {
+        shift: {
+          shiftDate: { gte: startOfDay, lt: endOfDay },
+          ...(shiftType ? { shiftType } : {}),
+        },
+      },
+      include: {
+        shift: { include: { regu: true } },
+        linmas: { include: { user: true, regu: true } },
+        originalLinmas: true,
+        attendanceSessions: {
+          orderBy: { id: 'desc' },
+          take: 1,
+          include: { logs: true },
+        },
+      },
+      orderBy: [{ shift: { shiftType: 'asc' } }],
+    });
+
+    return assignments.map((assignment) => {
+      const session = assignment.attendanceSessions[0];
+      const clockIn = session?.logs.find((l) => l.logType === LogType.CLOCK_IN);
+      const clockOut = session?.logs.find(
+        (l) => l.logType === LogType.CLOCK_OUT,
+      );
+
+      return {
+        shift_assignment_id: assignment.id,
+        attendance_session_id: session?.id ?? null,
+        linmas_id: assignment.linmasId,
+        full_name: assignment.linmas.fullName,
+        phone_number: assignment.linmas.user?.phone_number ?? null,
+        regu_name: assignment.linmas.regu?.name ?? null,
+        is_substitute: assignment.isSubstitute,
+        original_linmas_name: assignment.originalLinmas?.fullName ?? null,
+        shift_type: assignment.shift.shiftType,
+        shift_date: assignment.shift.shiftDate,
+        start_time: assignment.shift.startTime,
+        end_time: assignment.shift.endTime,
+        // Belum ada session = anggota belum absen & belum divonis ABSENT oleh cron
+        status: session?.status ?? 'BELUM_ABSEN',
+        clock_in_time: clockIn?.timestamp ?? null,
+        clock_out_time: clockOut?.timestamp ?? null,
+        excuse_note: session?.excuseNote ?? null,
+      };
+    });
+  }
+
+  async getAttendanceDetail(sessionId: string) {
+    const session = await this.prisma.attendanceSession.findUnique({
+      where: { id: sessionId },
+      include: {
+        shiftAssignment: {
+          include: { shift: { include: { regu: true } } },
+        },
+        linmasProfile: { include: { user: true, regu: true } },
+        logs: { include: { photoFile: true }, orderBy: { timestamp: 'asc' } },
+        visits: { include: { checkpoint: true } },
+      },
+    });
+
+    if (!session) {
+      throw new NotFoundException('Sesi presensi tidak ditemukan.');
+    }
+
+    // Ambil signed URL untuk semua foto pada sesi ini sekaligus (1 auth token B2)
+    const photoFileIds = session.logs.map((log) => log.photoFileId);
+    const photoUrls = photoFileIds.length
+      ? await this.storageService.getMultiplePrivateFileUrls(photoFileIds)
+      : [];
+    const urlMap = new Map(photoUrls.map((p) => [p.file_id, p]));
+
+    const mapLog = (type: LogType) => {
+      const log = session.logs.find((l) => l.logType === type);
+      if (!log) return null;
+
+      const signedUrl = urlMap.get(log.photoFileId);
+
+      return {
+        log_id: log.id,
+        timestamp: log.timestamp,
+        latitude: log.latitude,
+        longitude: log.longitude,
+        distance_meters: log.distanceMeters,
+        geofence_status: log.geofenceStatus,
+        geofence_radius: log.geofenceRadius,
+        photo: {
+          file_id: log.photoFileId,
+          original_name: log.photoFile.original_name,
+          mime_type: log.photoFile.mime_type,
+          url: signedUrl?.private_url ?? null,
+          expires_in: signedUrl?.expires_in ?? null,
+        },
+      };
+    };
+
+    return {
+      attendance_session_id: session.id,
+      status: session.status,
+      excuse_note: session.excuseNote,
+      completed_at: session.completedAt,
+      linmas: {
+        linmas_id: session.linmasProfileUserId,
+        full_name: session.linmasProfile?.fullName,
+        address: session.linmasProfile?.address,
+        phone_number: session.linmasProfile?.user?.phone_number,
+        regu_name: session.linmasProfile?.regu?.name ?? null,
+      },
+      shift: {
+        shift_id: session.shiftAssignment.shift.id,
+        shift_type: session.shiftAssignment.shift.shiftType,
+        shift_date: session.shiftAssignment.shift.shiftDate,
+        start_time: session.shiftAssignment.shift.startTime,
+        end_time: session.shiftAssignment.shift.endTime,
+        regu_name: session.shiftAssignment.shift.regu?.name ?? null,
+        is_substitute: session.shiftAssignment.isSubstitute,
+      },
+      clock_in: mapLog(LogType.CLOCK_IN),
+      clock_out: mapLog(LogType.CLOCK_OUT),
+      patrol_visits: session.visits.map((v) => ({
+        checkpoint_name: v.checkpoint.name,
+        entered_at: v.enteredAt,
+        visit_count: v.visitCount,
+      })),
+    };
   }
 
   async handleCoordinatorPermission(

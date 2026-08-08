@@ -4,10 +4,24 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
+import { PatrolType, Prisma, ShiftType } from '@prisma/client';
 import { StorageService } from '../storage/storage.service';
 import { VisitCheckpointDto } from './dto/visit-checkpoint.dto';
 import { CreatePatrolReportDto } from './dto/create-patrol-report.dto';
 import { calculateHaversineDistance } from '../../common/utils/geo.util';
+
+export interface PatrolReportFilters {
+  patrolType?: PatrolType;
+  reguId?: string;
+  linmasId?: string;
+  date?: string; // single day, YYYY-MM-DD
+  dateFrom?: string;
+  dateTo?: string;
+  shiftType?: ShiftType; // MORNING | NIGHT
+  shiftAssignmentId?: string; // presisi: satu occurrence shift tertentu
+  page?: number;
+  limit?: number;
+}
 
 @Injectable()
 export class PatrolsService {
@@ -69,23 +83,8 @@ export class PatrolsService {
       throw new NotFoundException('Checkpoint tidak ditemukan.');
     }
 
-    // 2. Cek apakah sudah pernah dikunjungi di sesi shift ini
-    const existingVisit = await this.prisma.patrolVisit.findUnique({
-      where: {
-        attendanceSessionId_checkpointId: {
-          attendanceSessionId: session.id,
-          checkpointId: checkpoint.id,
-        },
-      },
-    });
-
-    if (existingVisit) {
-      throw new BadRequestException(
-        'Checkpoint ini sudah dikunjungi pada shift Anda saat ini.',
-      );
-    }
-
-    // 3. Validasi Geofencing (SERVER SIDE)
+    // 2. Validasi Geofencing (SERVER SIDE) - berlaku untuk kunjungan
+    // pertama maupun kunjungan ulang
     const distance = calculateHaversineDistance(
       parseFloat(checkpoint.latitude.toString()),
       parseFloat(checkpoint.longitude.toString()),
@@ -99,7 +98,9 @@ export class PatrolsService {
       );
     }
 
-    // 4. Catat Kunjungan
+    // 3. Catat Kunjungan. Setiap kunjungan dicatat sebagai baris baru — jadi
+    // checkpoint yang sama boleh dikunjungi berkali-kali dalam satu shift,
+    // dan setiap kunjungan punya waktunya (enteredAt) masing-masing.
     const visit = await this.prisma.patrolVisit.create({
       data: {
         attendanceSessionId: session.id,
@@ -109,10 +110,16 @@ export class PatrolsService {
       },
     });
 
+    // 4. Hitung sudah berapa kali checkpoint ini dikunjungi pada shift ini
+    const visitCount = await this.prisma.patrolVisit.count({
+      where: { attendanceSessionId: session.id, checkpointId: checkpoint.id },
+    });
+
     return {
       visit_id: visit.id,
       verified_distance: parseFloat(distance.toFixed(2)),
       entered_at: visit.enteredAt.toISOString(),
+      visit_count: visitCount,
     };
   }
 
@@ -137,9 +144,15 @@ export class PatrolsService {
     const session = await this.getActiveSession(linmasId);
 
     const totalCheckpoints = await this.prisma.patrolCheckpoint.count();
-    const visitedCheckpoints = await this.prisma.patrolVisit.count({
+
+    // groupBy checkpointId, bukan count() biasa, karena satu checkpoint bisa
+    // punya beberapa baris PatrolVisit (kunjungan berulang) dalam satu shift -
+    // count() polos akan menghitung ganda dan bikin percentage lewat 100%.
+    const visitedGroups = await this.prisma.patrolVisit.groupBy({
+      by: ['checkpointId'],
       where: { attendanceSessionId: session.id },
     });
+    const visitedCheckpoints = visitedGroups.length;
 
     const percentage =
       totalCheckpoints > 0 ? (visitedCheckpoints / totalCheckpoints) * 100 : 0;
@@ -160,6 +173,10 @@ export class PatrolsService {
     dto: CreatePatrolReportDto,
     photoFile: Express.Multer.File,
   ) {
+    // 0. FAIL FAST: Wajib punya sesi shift aktif sebelum upload foto
+    // (konsisten dengan visitCheckpoint/getVisitHistory/getPatrolSummary)
+    const session = await this.getActiveSession(linmasId);
+
     // 1. Upload file terlebih dahulu via StorageService
     const uploadedPhoto = await this.storageService.uploadFile(
       linmasId,
@@ -167,10 +184,11 @@ export class PatrolsService {
       'patrol-reports',
     );
 
-    // 2. Simpan Laporan
+    // 2. Simpan Laporan (terikat ke sesi shift yang sedang aktif)
     const patrol = await this.prisma.patrolReport.create({
       data: {
         linmasId: linmasId,
+        attendanceSessionId: session.id,
         patrolType: dto.patrol_type,
         description: dto.description,
         latitude: dto.latitude,
@@ -185,32 +203,105 @@ export class PatrolsService {
     };
   }
 
-  async getPatrolReports() {
-    const patrols = await this.prisma.patrolReport.findMany({
-      orderBy: { reportedAt: 'desc' },
-      include: {
-        linmas: { include: { regu: true } },
-        // Relasi photoFile tidak perlu di-include lagi karena tidak dipakai di list
-      },
-    });
+  async getPatrolReports(filters: PatrolReportFilters = {}) {
+    const page = filters.page && filters.page > 0 ? filters.page : 1;
+    const limit =
+      filters.limit && filters.limit > 0 ? Math.min(filters.limit, 100) : 20;
 
-    return patrols.map((p) => ({
-      patrol_id: p.id,
-      reporter: {
-        linmas_id: p.linmas.userId,
-        full_name: p.linmas.fullName,
-        regu_name: p.linmas.regu?.name || null,
+    const conditions: Prisma.PatrolReportWhereInput[] = [];
+
+    if (filters.patrolType) conditions.push({ patrolType: filters.patrolType });
+    if (filters.linmasId) conditions.push({ linmasId: filters.linmasId });
+    if (filters.reguId) conditions.push({ linmas: { reguId: filters.reguId } });
+
+    if (filters.shiftAssignmentId) {
+      // Presisi: laporan dari SATU occurrence shift tertentu.
+      conditions.push({
+        attendanceSession: { shiftAssignmentId: filters.shiftAssignmentId },
+      });
+    } else if (filters.shiftType) {
+      // Laporan dari shift bertipe tertentu, pada tanggal tertentu (default hari ini).
+      const targetDate = filters.date ? new Date(filters.date) : new Date();
+      const shiftDate = new Date(
+        targetDate.getFullYear(),
+        targetDate.getMonth(),
+        targetDate.getDate(),
+      );
+      conditions.push({
+        attendanceSession: {
+          shiftAssignment: {
+            shift: { shiftDate, shiftType: filters.shiftType },
+          },
+        },
+      });
+    } else if (filters.date) {
+      // Filter umum: laporan yang dibuat pada tanggal kalender tertentu.
+      const d = new Date(filters.date);
+      const dayStart = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+      conditions.push({
+        reportedAt: { gte: dayStart, lt: this.addDays(dayStart, 1) },
+      });
+    } else if (filters.dateFrom || filters.dateTo) {
+      conditions.push({
+        reportedAt: {
+          ...(filters.dateFrom ? { gte: new Date(filters.dateFrom) } : {}),
+          ...(filters.dateTo
+            ? { lt: this.addDays(new Date(filters.dateTo), 1) }
+            : {}),
+        },
+      });
+    }
+
+    const where: Prisma.PatrolReportWhereInput = conditions.length
+      ? { AND: conditions }
+      : {};
+
+    const [patrols, total] = await this.prisma.$transaction([
+      this.prisma.patrolReport.findMany({
+        where,
+        orderBy: { reportedAt: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit,
+        include: {
+          linmas: { include: { regu: true } },
+          // Relasi photoFile tidak perlu di-include lagi karena tidak dipakai di list
+        },
+      }),
+      this.prisma.patrolReport.count({ where }),
+    ]);
+
+    return {
+      items: patrols.map((p) => ({
+        patrol_id: p.id,
+        reporter: {
+          linmas_id: p.linmas.userId,
+          full_name: p.linmas.fullName,
+          regu_name: p.linmas.regu?.name || null,
+        },
+        patrol_type: p.patrolType,
+        description: p.description,
+        location: {
+          latitude: parseFloat(p.latitude.toString()),
+          longitude: parseFloat(p.longitude.toString()),
+        },
+        // photo_url DIHILANGKAN UNTUK MENGHEMAT BANDWIDTH DAN MEMPERCEPAT API LIST
+        reported_at: p.reportedAt.toISOString(),
+      })),
+      pagination: {
+        page,
+        limit,
+        total,
+        total_pages: total === 0 ? 0 : Math.ceil(total / limit),
       },
-      patrol_type: p.patrolType,
-      description: p.description,
-      location: {
-        latitude: parseFloat(p.latitude.toString()),
-        longitude: parseFloat(p.longitude.toString()),
-      },
-      // photo_url DIHILANGKAN UNTUK MENGHEMAT BANDWIDTH DAN MEMPERCEPAT API LIST
-      reported_at: p.reportedAt.toISOString(),
-    }));
+    };
   }
+
+  private addDays(date: Date, days: number) {
+    const d = new Date(date);
+    d.setDate(d.getDate() + days);
+    return d;
+  }
+
   async getPatrolReportDetail(patrolId: string) {
     const patrol = await this.prisma.patrolReport.findUnique({
       where: { id: patrolId },

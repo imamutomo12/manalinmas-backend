@@ -3,6 +3,7 @@ import {
   Post,
   Get,
   Body,
+  Param,
   Query,
   UseGuards,
   UseInterceptors,
@@ -20,7 +21,7 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
-import { Role } from '@prisma/client';
+import { Role, ShiftType } from '@prisma/client';
 import {
   ApiTags,
   ApiBearerAuth,
@@ -107,6 +108,39 @@ export class AttendanceController {
       parseInt(year, 10),
     );
     return { success: true, message: 'Attendance recap loaded', data };
+  }
+
+  @Get('today')
+  @Roles(Role.KOORDINATOR)
+  @ApiOperation({
+    summary: 'Get Today Attendance Roster (Koordinator Dashboard)',
+  })
+  @ApiQuery({
+    name: 'date',
+    required: false,
+    type: String,
+    description: 'YYYY-MM-DD, defaults to today',
+  })
+  @ApiQuery({ name: 'shift_type', required: false, enum: ShiftType })
+  async getTodayAttendance(
+    @Query('date') date?: string,
+    @Query('shift_type') shiftType?: ShiftType,
+  ) {
+    const data = await this.attendanceService.getTodayAttendanceData(
+      date,
+      shiftType,
+    );
+    return { success: true, message: 'Today attendance loaded', data };
+  }
+
+  @Get('detail/:sessionId')
+  @Roles(Role.KOORDINATOR)
+  @ApiOperation({
+    summary: 'Get Attendance Session Detail (with photo evidence)',
+  })
+  async getAttendanceDetail(@Param('sessionId') sessionId: string) {
+    const data = await this.attendanceService.getAttendanceDetail(sessionId);
+    return { success: true, message: 'Attendance detail loaded', data };
   }
 
   @Post('permission')
