@@ -191,6 +191,7 @@ export class ShiftsService {
 
     return shifts.map((shift) => ({
       shift_id: shift.id,
+      regu_id: shift.reguId,
       regu_name: shift.regu?.name || null,
       shift_date: shift.shiftDate.toISOString().split('T')[0],
       shift_type: shift.shiftType,
