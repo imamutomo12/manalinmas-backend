@@ -666,4 +666,17 @@ export class PerformanceService {
       },
     });
   }
+
+  async getSpecificMonthlyEvaluation(
+    linmasId: string,
+    month: number,
+    year: number,
+  ): Promise<any> {
+    // 'any' can be replaced with the specific evaluation object type if defined
+    // Reuse the logic from getMonthlyEvaluation, but ensure it always filters by linmasId
+    const evaluations = await this.getMonthlyEvaluation(month, year, linmasId);
+
+    // Return the first (and should be only) evaluation from the filtered list
+    return evaluations.length > 0 ? evaluations[0] : null;
+  }
 }

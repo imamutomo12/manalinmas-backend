@@ -185,6 +185,55 @@ export class PerformanceController {
     };
   }
 
+  // NEW: Get Specific Monthly Performance Evaluation (e.g., for Coordinator to view specific Linmas)
+  @Get('evaluations/:linmas_id') // Define the route path
+  @Roles(Role.KOORDINATOR) // Adjust roles as necessary
+  @ApiOperation({
+    summary:
+      'Get Monthly Performance Evaluation for a Specific Linmas (Koordinator)',
+  })
+  @ApiQuery({ name: 'month', required: true, type: Number })
+  @ApiQuery({ name: 'year', required: true, type: Number })
+  @ApiResponse({ status: 200, description: 'Evaluation loaded successfully.' })
+  @ApiResponse({ status: 404, description: 'Evaluation not found.' })
+  @ApiResponse({ status: 400, description: 'Invalid month or year format.' })
+  async getSpecificMonthlyEvaluation(
+    @Param('linmas_id') linmasId: string, // Extract linmasId from the path
+    @Query('month') month: string, // Extract month from query
+    @Query('year') year: string, // Extract year from query
+    @CurrentUser() user: any, // Optional: for authorization checks
+  ) {
+    const parsedMonth = parseInt(month, 10);
+    const parsedYear = parseInt(year, 10);
+
+    if (isNaN(parsedMonth) || isNaN(parsedYear)) {
+      throw new BadRequestException('Invalid month or year format.');
+    }
+
+    // Call the service method to get the specific evaluation
+    const data = await this.performanceService.getSpecificMonthlyEvaluation(
+      linmasId,
+      parsedMonth,
+      parsedYear,
+    );
+
+    if (!data) {
+      // Return a 404-like response if not found
+      return {
+        success: false,
+        message: 'Evaluation not found for the specified Linmas and period.',
+        data: null,
+      };
+    }
+
+    // Return the found evaluation
+    return {
+      success: true,
+      message: 'Specific monthly performance evaluation loaded',
+      data: data, // This should be a single evaluation object
+    };
+  }
+
   // ========================
   // SALARY ADJUSTMENTS (New)
   // ========================
