@@ -267,6 +267,12 @@ export class AttendanceService {
       now.getDate() + 1,
     );
 
+    console.log('========== ATTENDANCE DEBUG ==========');
+    console.log('linmasId:', linmasId);
+    console.log('now:', now.toISOString());
+    console.log('startOfDay:', startOfDay.toISOString());
+    console.log('endOfDay:', endOfDay.toISOString());
+
     const assignment = await this.prisma.shiftAssignment.findFirst({
       where: {
         linmasId: linmasId,
@@ -281,6 +287,27 @@ export class AttendanceService {
         },
       },
     });
+
+    console.log('PRISMA FIND FIRST:', JSON.stringify(assignment, null, 2));
+
+    const raw = await this.prisma.$queryRaw`
+  SELECT
+    sa.id AS assignment_id,
+    sa.linmas_id,
+    s.id AS shift_id,
+    s.shift_date,
+    s.shift_type,
+    s.start_time,
+    s.end_time
+  FROM shift_assignments sa
+  JOIN shifts s
+    ON s.id = sa.shift_id
+  WHERE sa.linmas_id = ${linmasId}
+    AND s.shift_date = CURRENT_DATE
+  LIMIT 1;
+`;
+
+    console.log('PRISMA RAW SQL:', JSON.stringify(raw, null, 2));
 
     if (!assignment) {
       return {
