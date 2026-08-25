@@ -256,104 +256,279 @@ export class AttendanceService {
 
   async getTodayAttendanceStatus(linmasId: string) {
     const now = new Date();
-    const startOfDay = new Date(
-      now.getFullYear(),
-      now.getMonth(),
-      now.getDate(),
+
+    /**
+     * Karena shiftDate di database adalah PostgreSQL DATE,
+     * kita gunakan tanggal lokal Asia/Jakarta sebagai dasar.
+     */
+    const todayStart = new Date(
+      Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()),
     );
-    const endOfDay = new Date(
-      now.getFullYear(),
-      now.getMonth(),
-      now.getDate() + 1,
-    );
+
+    const yesterdayStart = new Date(todayStart);
+    yesterdayStart.setUTCDate(yesterdayStart.getUTCDate() - 1);
+
+    const tomorrowStart = new Date(todayStart);
+    tomorrowStart.setUTCDate(tomorrowStart.getUTCDate() + 1);
 
     console.log('========== ATTENDANCE DEBUG ==========');
     console.log('linmasId:', linmasId);
-    console.log('now:', now.toISOString());
-    console.log('startOfDay:', startOfDay.toISOString());
-    console.log('endOfDay:', endOfDay.toISOString());
+    console.log('now:', now.toString());
+    console.log('now ISO:', now.toISOString());
 
-    const assignment = await this.prisma.shiftAssignment.findFirst({
+    console.log('todayStart:', todayStart.toISOString());
+
+    console.log('yesterdayStart:', yesterdayStart.toISOString());
+
+    console.log('tomorrowStart:', tomorrowStart.toISOString());
+
+    /**
+     * Ambil assignment untuk:
+     * - shift yang mulai hari ini
+     * - shift yang mulai kemarin
+     *
+     * Shift kemarin diperlukan untuk NIGHT shift
+     * yang masih berlangsung setelah tengah malam.
+     */
+    const assignments = await this.prisma.shiftAssignment.findMany({
       where: {
-        linmasId: linmasId,
-        shift: { shiftDate: { gte: startOfDay, lt: endOfDay } },
+        linmasId,
+
+        shift: {
+          shiftDate: {
+            gte: yesterdayStart,
+            lt: tomorrowStart,
+          },
+        },
       },
+
       include: {
         shift: true,
-        // Gunakan findFirst dan orderBy agar aman
+
         attendanceSessions: {
-          orderBy: { id: 'desc' },
+          orderBy: {
+            id: 'desc',
+          },
           take: 1,
+        },
+      },
+
+      orderBy: {
+        shift: {
+          shiftDate: 'desc',
         },
       },
     });
 
-    console.log('PRISMA FIND FIRST:', JSON.stringify(assignment, null, 2));
+    console.log('FOUND ASSIGNMENTS:', JSON.stringify(assignments, null, 2));
 
-    const raw = await this.prisma.$queryRaw`
-  SELECT
-    sa.id AS assignment_id,
-    sa.linmas_id,
-    s.id AS shift_id,
-    s.shift_date,
-    s.shift_type,
-    s.start_time,
-    s.end_time
-  FROM shift_assignments sa
-  JOIN shifts s
-    ON s.id = sa.shift_id
-  WHERE sa.linmas_id = ${linmasId}
-    AND s.shift_date = CURRENT_DATE
-  LIMIT 1;
-`;
-
-    console.log('PRISMA RAW SQL:', JSON.stringify(raw, null, 2));
-
-    if (!assignment) {
+    if (assignments.length === 0) {
       return {
         status: 'NO_SHIFT_TODAY',
         message: 'Anda tidak memiliki jadwal hari ini.',
       };
     }
 
-    const shift = assignment.shift;
-    const session = assignment.attendanceSessions[0];
+    /**
+     * Cari assignment yang waktunya masih relevan
+     * dengan waktu sekarang.
+     */
+    let selectedAssignment: (typeof assignments)[number] | null = null;
 
-    const shiftStartTime = new Date(shift.startTime);
-    shiftStartTime.setFullYear(
-      now.getFullYear(),
-      now.getMonth(),
-      now.getDate(),
-    );
+    let selectedShiftStart: Date | null = null;
+    let selectedShiftEnd: Date | null = null;
 
-    const shiftEndTime = new Date(shift.endTime);
-    shiftEndTime.setFullYear(now.getFullYear(), now.getMonth(), now.getDate());
+    let selectedEarliestClockIn: Date | null = null;
+    let selectedLatestClockOut: Date | null = null;
 
-    if (shiftEndTime < shiftStartTime)
-      shiftEndTime.setDate(shiftEndTime.getDate() + 1);
+    for (const assignment of assignments) {
+      const shift = assignment.shift;
 
-    const earliestClockIn = new Date(shiftStartTime.getTime() - 30 * 60000);
-    const latestClockOut = new Date(shiftEndTime.getTime() + 4 * 60 * 60000);
+      /**
+       * shift.startTime dan shift.endTime berasal dari PostgreSQL TIME.
+       * Prisma merepresentasikannya sebagai Date dengan tanggal dummy.
+       *
+       * Kita ambil jam dan menitnya saja.
+       */
+      const startHours = shift.startTime.getHours();
+      const startMinutes = shift.startTime.getMinutes();
 
+      const endHours = shift.endTime.getHours();
+      const endMinutes = shift.endTime.getMinutes();
+
+      /**
+       * Tentukan tanggal mulai berdasarkan shiftDate.
+       *
+       * shiftDate dari PostgreSQL DATE direpresentasikan Prisma
+       * sebagai Date.
+       */
+      const shiftDate = new Date(shift.shiftDate);
+
+      const shiftYear = shiftDate.getUTCFullYear();
+      const shiftMonth = shiftDate.getUTCMonth();
+      const shiftDay = shiftDate.getUTCDate();
+
+      /**
+       * Buat start datetime berdasarkan tanggal shift + jam start.
+       */
+      const shiftStartTime = new Date(
+        shiftYear,
+        shiftMonth,
+        shiftDay,
+        startHours,
+        startMinutes,
+        0,
+        0,
+      );
+
+      /**
+       * Buat end datetime berdasarkan tanggal shift + jam end.
+       */
+      const shiftEndTime = new Date(
+        shiftYear,
+        shiftMonth,
+        shiftDay,
+        endHours,
+        endMinutes,
+        0,
+        0,
+      );
+
+      /**
+       * Jika end < start, berarti shift melewati tengah malam.
+       *
+       * Contoh:
+       * 22:00 → 06:00
+       *
+       * Maka end menjadi tanggal berikutnya.
+       */
+      if (shiftEndTime <= shiftStartTime) {
+        shiftEndTime.setDate(shiftEndTime.getDate() + 1);
+      }
+
+      /**
+       * Clock-in dibuka 30 menit sebelum shift.
+       */
+      const earliestClockIn = new Date(
+        shiftStartTime.getTime() - 30 * 60 * 1000,
+      );
+
+      /**
+       * Clock-out masih ditoleransi 4 jam setelah shift selesai.
+       */
+      const latestClockOut = new Date(
+        shiftEndTime.getTime() + 4 * 60 * 60 * 1000,
+      );
+
+      console.log('----------------------------');
+      console.log('Assignment:', assignment.id);
+      console.log('Shift date:', shift.shiftDate);
+      console.log('Shift type:', shift.shiftType);
+      console.log('Shift start:', shiftStartTime.toString());
+      console.log('Shift end:', shiftEndTime.toString());
+      console.log('Earliest clock in:', earliestClockIn.toString());
+      console.log('Latest clock out:', latestClockOut.toString());
+      console.log('Now:', now.toString());
+
+      /**
+       * Tentukan apakah shift masih relevan.
+       *
+       * Relevan jika:
+       *
+       * now >= earliestClockIn
+       * dan
+       * now <= latestClockOut
+       *
+       * Ini menangani:
+       *
+       * Shift biasa:
+       * 07:00 - 19:00
+       *
+       * Shift malam:
+       * 22:00 - 06:00
+       */
+      const isRelevant = now >= earliestClockIn && now <= latestClockOut;
+
+      if (isRelevant) {
+        selectedAssignment = assignment;
+        selectedShiftStart = shiftStartTime;
+        selectedShiftEnd = shiftEndTime;
+        selectedEarliestClockIn = earliestClockIn;
+        selectedLatestClockOut = latestClockOut;
+
+        /**
+         * Karena assignments diurutkan dari shiftDate
+         * terbaru, assignment pertama yang relevan
+         * adalah kandidat utama.
+         */
+        break;
+      }
+    }
+
+    /**
+     * Tidak ada shift yang sedang aktif / mendekati waktunya.
+     */
+    if (
+      !selectedAssignment ||
+      !selectedShiftStart ||
+      !selectedShiftEnd ||
+      !selectedEarliestClockIn ||
+      !selectedLatestClockOut
+    ) {
+      return {
+        status: 'NO_SHIFT_TODAY',
+        message: 'Tidak ada jadwal yang sedang aktif.',
+      };
+    }
+
+    const session = selectedAssignment.attendanceSessions[0];
+
+    /**
+     * Belum melakukan clock-in.
+     */
     if (!session) {
-      if (now < earliestClockIn) {
-        const hh = earliestClockIn.getHours().toString().padStart(2, '0');
-        const mm = earliestClockIn.getMinutes().toString().padStart(2, '0');
+      /**
+       * Belum masuk periode clock-in.
+       */
+      if (now < selectedEarliestClockIn) {
+        const hh = selectedEarliestClockIn
+          .getHours()
+          .toString()
+          .padStart(2, '0');
+
+        const mm = selectedEarliestClockIn
+          .getMinutes()
+          .toString()
+          .padStart(2, '0');
+
         return {
           status: 'WAITING',
           message: `Absen masuk dibuka pukul ${hh}:${mm}`,
         };
       }
-      if (now > shiftEndTime) {
-        console.log('Now:', now);
-        console.log('Shift Start:', shiftStartTime);
-        console.log('Shift End:', shiftEndTime);
-        return { status: 'MISSED', message: 'Waktu shift sudah berakhir.' };
+
+      /**
+       * Sudah melewati waktu shift.
+       */
+      if (now > selectedShiftEnd) {
+        return {
+          status: 'MISSED',
+          message: 'Waktu shift sudah berakhir.',
+        };
       }
-      return { status: 'CAN_CLOCK_IN', shift_assignment_id: assignment.id };
+
+      /**
+       * Saatnya melakukan clock-in.
+       */
+      return {
+        status: 'CAN_CLOCK_IN',
+        shift_assignment_id: selectedAssignment.id,
+      };
     }
 
-    // Jika ada session dan sudah tercatat "ended_at" (dari Clock-Out baru)
+    /**
+     * Sudah clock-out.
+     */
     if (session.completedAt) {
       return {
         status: 'COMPLETED',
@@ -361,16 +536,24 @@ export class AttendanceService {
       };
     }
 
-    if (now > latestClockOut) {
+    /**
+     * Sudah melewati batas clock-out.
+     */
+    if (now > selectedLatestClockOut) {
       return {
         status: 'FORFEIT',
         message: 'Lupa absen pulang (Sistem ditutup).',
       };
     }
 
-    return { status: 'CAN_CLOCK_OUT', attendance_session_id: session.id };
+    /**
+     * Sudah clock-in tetapi belum clock-out.
+     */
+    return {
+      status: 'CAN_CLOCK_OUT',
+      attendance_session_id: session.id,
+    };
   }
-
   async getTodayAttendanceData(dateStr?: string, shiftType?: ShiftType) {
     const targetDate = dateStr ? new Date(dateStr) : new Date();
     const startOfDay = new Date(
