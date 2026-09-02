@@ -22,7 +22,7 @@ import { HandlePermissionDto } from './dto/permission.dto';
 export class AttendanceService {
   private readonly GEOFENCE_LAT = -6.968220595803268;
   private readonly GEOFENCE_LNG = 107.58146283779371;
-  private readonly GEOFENCE_RADIUS_METERS = 80.0;
+  private readonly GEOFENCE_RADIUS_METERS = 100.0;
   private readonly logger = new Logger(AttendanceService.name);
 
   constructor(
