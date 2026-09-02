@@ -361,12 +361,11 @@ export class AttendanceService {
        *
        * Kita ambil jam dan menitnya saja.
        */
-      const startHours = shift.startTime.getHours();
-      const startMinutes = shift.startTime.getMinutes();
+      const startHours = shift.startTime.getUTCHours();
+      const startMinutes = shift.startTime.getUTCMinutes();
 
-      const endHours = shift.endTime.getHours();
-      const endMinutes = shift.endTime.getMinutes();
-
+      const endHours = shift.endTime.getUTCHours();
+      const endMinutes = shift.endTime.getUTCMinutes();
       /**
        * Tentukan tanggal mulai berdasarkan shiftDate.
        *
