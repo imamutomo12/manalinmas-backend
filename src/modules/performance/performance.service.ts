@@ -14,6 +14,7 @@ import {
 } from '@prisma/client';
 import { Prisma } from '@prisma/client';
 import { StorageService } from '../storage/storage.service'; // Import StorageService
+import { PerformanceCalculatorService } from './performance-calculator.service';
 
 @Injectable()
 export class PerformanceService {
@@ -22,6 +23,7 @@ export class PerformanceService {
 
   constructor(
     private prisma: PrismaService,
+    private performanceCalculator: PerformanceCalculatorService,
     private storageService: StorageService, // Inject StorageService
   ) {}
 
@@ -678,5 +680,276 @@ export class PerformanceService {
 
     // Return the first (and should be only) evaluation from the filtered list
     return evaluations.length > 0 ? evaluations[0] : null;
+  }
+
+  // ========================================================================
+  // KOORDINATOR: MONTHLY PERFORMANCE SCORE
+  // ========================================================================
+  async getMonthlyPerformanceScore(
+    month: number,
+    year: number,
+    specificLinmasId?: string,
+  ) {
+    if (!month || !year || month < 1 || month > 12) {
+      throw new BadRequestException(
+        'Valid month (1-12) and year are required.',
+      );
+    }
+
+    const startDate = new Date(year, month - 1, 1);
+
+    const endDate = new Date(year, month, 1);
+
+    // -----------------------------------------------------
+    // 1. Ambil anggota Linmas
+    // -----------------------------------------------------
+    const linmasList = await this.prisma.user.findMany({
+      where: {
+        role: Role.LINMAS,
+        ...(specificLinmasId ? { id: specificLinmasId } : {}),
+      },
+      include: {
+        linmasProfile: {
+          include: {
+            regu: true,
+          },
+        },
+      },
+    });
+
+    // -----------------------------------------------------
+    // 2. Total checkpoint aktif
+    // -----------------------------------------------------
+    const totalCheckpoints = await this.prisma.patrolCheckpoint.count();
+
+    const evaluations: any[] = [];
+    // -----------------------------------------------------
+    // 3. Evaluasi setiap Linmas
+    // -----------------------------------------------------
+    for (const linmas of linmasList) {
+      const assignments = await this.prisma.shiftAssignment.findMany({
+        where: {
+          linmasId: linmas.id,
+          shift: {
+            shiftDate: {
+              gte: startDate,
+              lt: endDate,
+            },
+          },
+        },
+        include: {
+          shift: true,
+
+          attendanceSessions: {
+            include: {
+              visits: true,
+            },
+          },
+        },
+        orderBy: {
+          shift: {
+            shiftDate: 'asc',
+          },
+        },
+      });
+
+      const scheduledShifts = assignments.length;
+
+      // ---------------------------------------------------
+      // PRESENSI
+      // ---------------------------------------------------
+      let validAttendance = 0;
+      let unexcusedAbsences = 0;
+
+      // ---------------------------------------------------
+      // PATROLI
+      // ---------------------------------------------------
+      const patrolShiftScores: number[] = [];
+
+      for (const assignment of assignments) {
+        const session = assignment.attendanceSessions[0];
+
+        // -----------------------------------------------
+        // Valid Attendance
+        // -----------------------------------------------
+        if (
+          session &&
+          (session.completedAt || session.status === AttendanceStatus.EXCUSED)
+        ) {
+          validAttendance++;
+        }
+
+        // -----------------------------------------------
+        // Unexcused absence
+        // -----------------------------------------------
+        if (!session || session.status === AttendanceStatus.ABSENT) {
+          unexcusedAbsences++;
+        }
+
+        // -----------------------------------------------
+        // Patrol
+        //
+        // Hanya dihitung apabila shift dijalankan.
+        // -----------------------------------------------
+        if (session && session.status !== AttendanceStatus.EXCUSED) {
+          const uniqueVisited = new Set(
+            session.visits.map((visit) => visit.checkpointId),
+          ).size;
+
+          const shiftPatrolScore =
+            this.performanceCalculator.calculatePatrolShiftScore(
+              uniqueVisited,
+              totalCheckpoints,
+            );
+
+          patrolShiftScores.push(shiftPatrolScore);
+        }
+      }
+
+      // ---------------------------------------------------
+      // HITUNG SKOR
+      // ---------------------------------------------------
+      const attendanceScore =
+        this.performanceCalculator.calculateAttendanceScore(
+          validAttendance,
+          scheduledShifts,
+        );
+
+      const patrolScore =
+        this.performanceCalculator.calculateMonthlyPatrolScore(
+          patrolShiftScores,
+        );
+
+      const finalScore = this.performanceCalculator.calculateFinalScore(
+        attendanceScore,
+        patrolScore,
+      );
+
+      const category = this.performanceCalculator.determineCategory(finalScore);
+
+      // ---------------------------------------------------
+      // PELAYANAN WARGA
+      // ---------------------------------------------------
+      const incidents = await this.prisma.incident.findMany({
+        where: {
+          linmasProfileUserId: linmas.id,
+          status: IncidentStatus.SELESAI,
+          resolvedAt: {
+            gte: startDate,
+            lt: endDate,
+          },
+        },
+        include: {
+          rating: true,
+        },
+      });
+
+      const ratedIncidents = incidents.filter(
+        (incident) => incident.rating !== null,
+      );
+
+      const totalRating = ratedIncidents.reduce(
+        (sum, incident) => sum + (incident.rating?.rating ?? 0),
+        0,
+      );
+
+      const averageRating =
+        ratedIncidents.length > 0 ? totalRating / ratedIncidents.length : null;
+
+      const serviceScore =
+        averageRating !== null
+          ? this.performanceCalculator.calculateServiceScore(averageRating)
+          : null;
+
+      // ---------------------------------------------------
+      // BONUS / POTONGAN
+      // ---------------------------------------------------
+      const substitutionCount = assignments.filter(
+        (assignment) => assignment.isSubstitute,
+      ).length;
+
+      const bonusAmount = substitutionCount * 50000;
+
+      const deductionAmount = unexcusedAbsences * 50000;
+
+      const netAdjustment = bonusAmount - deductionAmount;
+
+      evaluations.push({
+        linmas_id: linmas.id,
+
+        nama_anggota: linmas.linmasProfile?.fullName ?? 'Unknown',
+
+        regu: linmas.linmasProfile?.regu?.name ?? null,
+
+        periode: `${year}-${String(month).padStart(2, '0')}`,
+
+        kinerja: {
+          skor_presensi: attendanceScore,
+
+          skor_patroli: patrolScore,
+
+          bobot_presensi: 50,
+
+          bobot_patroli: 50,
+
+          skor_akhir: finalScore,
+
+          kategori: category,
+        },
+
+        presensi: {
+          shift_terjadwal: scheduledShifts,
+
+          presensi_valid: validAttendance,
+
+          tidak_hadir_tanpa_keterangan: unexcusedAbsences,
+
+          skor: attendanceScore,
+        },
+
+        patroli: {
+          total_checkpoint: totalCheckpoints,
+
+          shift_dijalankan: patrolShiftScores.length,
+
+          skor_per_shift: patrolShiftScores,
+
+          skor_bulanan: patrolScore,
+        },
+
+        pelayanan_warga: {
+          laporan_ditangani: ratedIncidents.length,
+
+          rata_rata_rating:
+            averageRating !== null
+              ? parseFloat(averageRating.toFixed(2))
+              : null,
+
+          skor_pelayanan: serviceScore,
+
+          status: ratedIncidents.length > 0 ? 'Dinilai' : 'Tidak Ada Penilaian',
+        },
+
+        administrasi_honor: {
+          shift_pengganti: substitutionCount,
+
+          bonus: bonusAmount,
+
+          ketidakhadiran: unexcusedAbsences,
+
+          potongan: deductionAmount,
+
+          penyesuaian: netAdjustment,
+        },
+      });
+    }
+
+    return {
+      periode: `${year}-${String(month).padStart(2, '0')}`,
+
+      total_anggota: evaluations.length,
+
+      evaluasi: evaluations,
+    };
   }
 }

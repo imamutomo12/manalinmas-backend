@@ -25,6 +25,7 @@ import {
   ApiOperation,
   ApiQuery,
 } from '@nestjs/swagger';
+import { GenerateScheduleDto } from './dto/generate-schedule.dto';
 
 @ApiTags('Shifts')
 @ApiBearerAuth()
@@ -109,5 +110,24 @@ export class ShiftsController {
   ) {
     const data = await this.shiftsService.assignSubstitute(shiftId, dto);
     return { success: true, message: 'Substitute assigned', data };
+  }
+
+  // =========================================================================
+  // PREVIEW GENERATE JADWAL
+  // =========================================================================
+  @Post('generate/preview')
+  async previewGenerateSchedule(@Body() dto: GenerateScheduleDto) {
+    return this.shiftsService.previewGenerateMonthlySchedule(
+      dto.month,
+      dto.year,
+    );
+  }
+
+  // =========================================================================
+  // GENERATE & SAVE JADWAL
+  // =========================================================================
+  @Post('generate')
+  async generateSchedule(@Body() dto: GenerateScheduleDto) {
+    return this.shiftsService.generateMonthlySchedule(dto.month, dto.year);
   }
 }

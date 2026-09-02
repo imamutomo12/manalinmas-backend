@@ -9,10 +9,15 @@ import { CreateShiftDto } from './dto/create-shift.dto';
 import { UpdateShiftDto } from './dto/update-shift.dto';
 import { SubstituteShiftDto } from './dto/substitute-shift.dto';
 import { BulkCreateShiftDto } from './dto/bulk-create-shift.dto';
+import { ScheduleGeneratorService } from './schedule-generator.service';
+import { ShiftType } from '@prisma/client';
 
 @Injectable()
 export class ShiftsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private scheduleGenerator: ScheduleGeneratorService,
+  ) {}
 
   private parseDateTime(dateStr: string, timeStr: string): Date {
     return new Date(`${dateStr}T${timeStr}Z`);
@@ -293,5 +298,252 @@ export class ShiftsService {
       substitute_linmas_id: dto.substitute_linmas_id,
       bonus_amount: 50000, // Hardcode/Business Rule
     };
+  }
+
+  // =========================================================================
+  // KOORDINATOR: PREVIEW GENERATE JADWAL BULANAN
+  // =========================================================================
+  async previewGenerateMonthlySchedule(month: number, year: number) {
+    if (!month || !year) {
+      throw new BadRequestException('Month and year are required.');
+    }
+
+    // Ambil 4 regu
+    const regus = await this.prisma.regu.findMany({
+      where: {
+        name: {
+          in: ['Regu 1', 'Regu 2', 'Regu 3', 'Regu 4'],
+        },
+      },
+      include: {
+        linmasMembers: true,
+      },
+      orderBy: {
+        name: 'asc',
+      },
+    });
+
+    if (regus.length !== 4) {
+      throw new BadRequestException(
+        'Exactly 4 regu are required to generate the schedule.',
+      );
+    }
+
+    // Pastikan setiap regu memiliki 3 anggota
+    for (const regu of regus) {
+      if (regu.linmasMembers.length !== 3) {
+        throw new BadRequestException(
+          `${regu.name} harus memiliki tepat 3 anggota Linmas.`,
+        );
+      }
+    }
+
+    // Cek apakah jadwal pada bulan tersebut sudah ada
+    const startDate = new Date(Date.UTC(year, month - 1, 1));
+
+    const endDate = new Date(Date.UTC(year, month, 1));
+
+    const existingShiftCount = await this.prisma.shift.count({
+      where: {
+        shiftDate: {
+          gte: startDate,
+          lt: endDate,
+        },
+      },
+    });
+
+    if (existingShiftCount > 0) {
+      throw new ConflictException(
+        `Jadwal bulan ${month}/${year} sudah tersedia.`,
+      );
+    }
+
+    // Generate jadwal
+    const generated = this.scheduleGenerator.generate(
+      year,
+      month,
+      regus.map((regu) => ({
+        id: regu.id,
+        name: regu.name,
+      })),
+    );
+
+    // Tambahkan informasi anggota agar Android
+    // tidak perlu request lagi hanya untuk preview
+    const result = generated.map((shift) => {
+      const regu = regus.find((r) => r.id === shift.regu_id);
+
+      return {
+        shift_date: shift.shift_date,
+        shift_type: shift.shift_type,
+        start_time: shift.start_time,
+        end_time: shift.end_time,
+
+        regu: {
+          id: regu?.id,
+          name: regu?.name,
+          members:
+            regu?.linmasMembers.map((member) => ({
+              linmas_id: member.userId,
+              full_name: member.fullName,
+            })) ?? [],
+        },
+      };
+    });
+
+    return {
+      month,
+      year,
+      total_days: new Date(year, month, 0).getDate(),
+      total_shifts: result.length,
+      regu_count: regus.length,
+      valid: true,
+      shifts: result,
+    };
+  }
+
+  // =========================================================================
+  // KOORDINATOR: GENERATE & SIMPAN JADWAL BULANAN
+  // =========================================================================
+  async generateMonthlySchedule(month: number, year: number) {
+    if (!month || !year) {
+      throw new BadRequestException('Month and year are required.');
+    }
+
+    const startDate = new Date(Date.UTC(year, month - 1, 1));
+
+    const endDate = new Date(Date.UTC(year, month, 1));
+
+    return this.prisma.$transaction(async (prisma) => {
+      // =====================================================
+      // 1. Cegah duplicate schedule
+      // =====================================================
+      const existingShift = await prisma.shift.findFirst({
+        where: {
+          shiftDate: {
+            gte: startDate,
+            lt: endDate,
+          },
+        },
+      });
+
+      if (existingShift) {
+        throw new ConflictException(
+          `Jadwal bulan ${month}/${year} sudah tersedia.`,
+        );
+      }
+
+      // =====================================================
+      // 2. Ambil regu
+      // =====================================================
+      const regus = await prisma.regu.findMany({
+        where: {
+          name: {
+            in: ['Regu 1', 'Regu 2', 'Regu 3', 'Regu 4'],
+          },
+        },
+        include: {
+          linmasMembers: true,
+        },
+        orderBy: {
+          name: 'asc',
+        },
+      });
+
+      if (regus.length !== 4) {
+        throw new BadRequestException('Exactly 4 regu are required.');
+      }
+
+      // =====================================================
+      // 3. Validasi anggota tiap regu
+      // =====================================================
+      for (const regu of regus) {
+        if (regu.linmasMembers.length !== 3) {
+          throw new BadRequestException(
+            `${regu.name} harus memiliki tepat 3 anggota.`,
+          );
+        }
+      }
+
+      // =====================================================
+      // 4. Generate schedule
+      // =====================================================
+      const generated = this.scheduleGenerator.generate(
+        year,
+        month,
+        regus.map((regu) => ({
+          id: regu.id,
+          name: regu.name,
+        })),
+      );
+
+      // =====================================================
+      // 5. Insert shifts + assignments
+      // =====================================================
+      const createdShifts: string[] = [];
+
+      for (const shiftData of generated) {
+        const shiftDate = new Date(`${shiftData.shift_date}T00:00:00.000Z`);
+
+        const startTime = new Date(
+          `${shiftData.shift_date}T${shiftData.start_time}.000Z`,
+        );
+
+        const endDateValue =
+          shiftData.shift_type === ShiftType.NIGHT
+            ? new Date(
+                new Date(`${shiftData.shift_date}T00:00:00.000Z`).getTime() +
+                  24 * 60 * 60 * 1000,
+              )
+            : new Date(`${shiftData.shift_date}T00:00:00.000Z`);
+
+        const endDateString = endDateValue.toISOString().split('T')[0];
+
+        const endTime = new Date(`${endDateString}T${shiftData.end_time}.000Z`);
+
+        // Ambil regu
+        const regu = regus.find((r) => r.id === shiftData.regu_id);
+
+        if (!regu) {
+          throw new BadRequestException('Regu untuk shift tidak ditemukan.');
+        }
+
+        // -------------------------
+        // Create Shift
+        // -------------------------
+        const shift = await prisma.shift.create({
+          data: {
+            shiftDate,
+            shiftType: shiftData.shift_type,
+            startTime,
+            endTime,
+            reguId: regu.id,
+          },
+        });
+
+        // -------------------------
+        // Create assignments
+        // -------------------------
+        const assignments = regu.linmasMembers.map((member) => ({
+          shiftId: shift.id,
+          linmasId: member.userId,
+          isSubstitute: false,
+        }));
+
+        await prisma.shiftAssignment.createMany({
+          data: assignments,
+        });
+
+        createdShifts.push(shift.id);
+      }
+
+      return {
+        success: true,
+        month,
+        year,
+        total_created: createdShifts.length,
+        shift_ids: createdShifts,
+      };
+    });
   }
 }

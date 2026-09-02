@@ -20,8 +20,8 @@ import { HandlePermissionDto } from './dto/permission.dto';
 
 @Injectable()
 export class AttendanceService {
-  private readonly GEOFENCE_LAT = -6.967996453272667;
-  private readonly GEOFENCE_LNG = 107.58149731006604;
+  private readonly GEOFENCE_LAT = -6.968220595803268;
+  private readonly GEOFENCE_LNG = 107.58146283779371;
   private readonly GEOFENCE_RADIUS_METERS = 50.0;
   private readonly logger = new Logger(AttendanceService.name);
 
@@ -261,22 +261,33 @@ export class AttendanceService {
      * Karena shiftDate di database adalah PostgreSQL DATE,
      * kita gunakan tanggal lokal Asia/Jakarta sebagai dasar.
      */
-    const todayStart = new Date(
-      Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()),
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    // Untuk query shiftDate (@db.Date), gunakan batas UTC
+    const yesterdayStart = new Date(
+      Date.UTC(
+        yesterday.getFullYear(),
+        yesterday.getMonth(),
+        yesterday.getDate(),
+      ),
     );
 
-    const yesterdayStart = new Date(todayStart);
-    yesterdayStart.setUTCDate(yesterdayStart.getUTCDate() - 1);
-
-    const tomorrowStart = new Date(todayStart);
-    tomorrowStart.setUTCDate(tomorrowStart.getUTCDate() + 1);
+    const tomorrowStart = new Date(
+      Date.UTC(tomorrow.getFullYear(), tomorrow.getMonth(), tomorrow.getDate()),
+    );
 
     console.log('========== ATTENDANCE DEBUG ==========');
     console.log('linmasId:', linmasId);
     console.log('now:', now.toString());
     console.log('now ISO:', now.toISOString());
 
-    console.log('todayStart:', todayStart.toISOString());
+    console.log('todayStart:', today.toISOString());
 
     console.log('yesterdayStart:', yesterdayStart.toISOString());
 
