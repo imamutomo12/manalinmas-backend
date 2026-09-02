@@ -83,21 +83,6 @@ export class PatrolsService {
       throw new NotFoundException('Checkpoint tidak ditemukan.');
     }
 
-    // 2. Validasi Geofencing (SERVER SIDE) - berlaku untuk kunjungan
-    // pertama maupun kunjungan ulang
-    const distance = calculateHaversineDistance(
-      parseFloat(checkpoint.latitude.toString()),
-      parseFloat(checkpoint.longitude.toString()),
-      dto.latitude,
-      dto.longitude,
-    );
-
-    if (distance > checkpoint.radiusMeters) {
-      throw new BadRequestException(
-        `Geofence gagal. Anda berjarak ${Math.round(distance)} meter dari ${checkpoint.name}. Maksimal radius adalah ${checkpoint.radiusMeters} meter.`,
-      );
-    }
-
     // 3. Catat Kunjungan. Setiap kunjungan dicatat sebagai baris baru — jadi
     // checkpoint yang sama boleh dikunjungi berkali-kali dalam satu shift,
     // dan setiap kunjungan punya waktunya (enteredAt) masing-masing.
